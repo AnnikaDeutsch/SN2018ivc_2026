@@ -1,2 +1,2 @@
-# SN2018ivc_summer
-Analysis of SN2018ivc data for NRAO summer project
+Code and data for SN 2018ivc project
+Use THIS repository instead of the old one (just called SN2018ivc), which had too many untracked changes
