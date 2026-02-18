@@ -44,6 +44,110 @@ cmap = LinearSegmentedColormap.from_list('custom_cmap', [coral, bora], N=256)
 
 
 #---------------Plotting Functions---------------#
+def plot_single_epoch(phase_lower, phase_upper, data, xlim, ylim, comp1=None, comp2=None, color=None):
+    """Plot SED for a specific epoch, with a by-eye 2 component fit"""
+    if color == None:
+        fig, ax = plt.subplots(figsize=(8,6), dpi=300)
+        mask = ((data['phase'] > phase_lower) & (data['phase'] < phase_upper))
+        data_epoch = data[mask]
+
+        # color code by telescope
+        ALMA_mask = (data_epoch['telescope'] == 'ALMA')
+        VLA_mask = (data_epoch['telescope'] == 'VLA')
+
+        x_ALMA = data_epoch['freq'][ALMA_mask]
+        y_ALMA = data_epoch['flux'][ALMA_mask]
+        yerr_ALMA = data_epoch['flux_err'][ALMA_mask]
+
+        x_VLA = data_epoch['freq'][VLA_mask]
+        y_VLA = data_epoch['flux'][VLA_mask]
+        yerr_VLA = data_epoch['flux_err'][VLA_mask]
+
+        ax.errorbar(x_ALMA, y_ALMA, yerr=yerr_ALMA, fmt='^', color='r', label='ALMA data')
+        ax.errorbar(x_VLA, y_VLA, yerr=yerr_VLA, fmt='s', color='b', label='VLA data')
+
+        if comp1 != None:
+            # fit the F_SSA model by eye with 2 components
+            freq_range = np.logspace(np.log10(xlim[0]), np.log10(xlim[1]), 200)
+            K11, K21, alpha1 = comp1
+            F_by_eye_low = F_FFA(freq_range, K11, K21, alpha1)
+            ax.plot(freq_range, F_by_eye_low, label='Component 1', color='orange', linestyle='--')
+
+
+        if comp2 != None:
+            # fit the F_SSA model by eye with 2 components
+            freq_range = np.logspace(np.log10(xlim[0]), np.log10(xlim[1]), 200)
+            K12, K22, p = comp2
+            F_by_eye_high = F_SSA(freq_range, K12, K22, p)
+            ax.plot(freq_range, F_by_eye_high, label='Component 2', color='magenta', linestyle='--') 
+
+        if (comp1 != None) and (comp2 != None):
+            ax.plot(freq_range, F_by_eye_low + F_by_eye_high, label='Combined', color='cyan', linestyle='-')
+
+        ax.set_xscale('log')
+        ax.set_yscale('log')
+        ax.set_xlim(xlim)
+        ax.set_ylim(ylim)
+        ax.set_xlabel('Frequency [GHz]')
+        ax.set_ylabel('Flux Density [mJy]')
+        avg_epoch = (phase_lower + phase_upper) / 2
+        ax.set_title(f'SN 2018ivc SED at {avg_epoch} days')
+        handles, labels = ax.get_legend_handles_labels()
+        by_label = dict(zip(labels, handles))
+        ax.legend(by_label.values(), by_label.keys())
+        fig.tight_layout()
+    else:
+        fig, ax = plt.subplots(figsize=(8,6), dpi=300)
+        mask = ((data['phase'] > phase_lower) & (data['phase'] < phase_upper))
+        data_epoch = data[mask]
+
+        # color code by telescope
+        ALMA_mask = (data_epoch['telescope'] == 'ALMA')
+        VLA_mask = (data_epoch['telescope'] == 'VLA')
+
+        x_ALMA = data_epoch['freq'][ALMA_mask]
+        y_ALMA = data_epoch['flux'][ALMA_mask]
+        yerr_ALMA = data_epoch['flux_err'][ALMA_mask]
+
+        x_VLA = data_epoch['freq'][VLA_mask]
+        y_VLA = data_epoch['flux'][VLA_mask]
+        yerr_VLA = data_epoch['flux_err'][VLA_mask]
+
+        ax.errorbar(x_ALMA, y_ALMA, yerr=yerr_ALMA, fmt='^', color=color, label='ALMA data')
+        ax.errorbar(x_VLA, y_VLA, yerr=yerr_VLA, fmt='s', color=color, label='VLA data')
+
+        if comp1 != None:
+            # fit the F_SSA model by eye with 2 components
+            freq_range = np.logspace(np.log10(xlim[0]), np.log10(xlim[1]), 200)
+            K11, K21, alpha1 = comp1
+            F_by_eye_low = F_FFA(freq_range, K11, K21, alpha1)
+            ax.plot(freq_range, F_by_eye_low, label='Component 1', color=color, linestyle='--')
+
+
+        if comp2 != None:
+            # fit the F_SSA model by eye with 2 components
+            freq_range = np.logspace(np.log10(xlim[0]), np.log10(xlim[1]), 200)
+            K12, K22, p = comp2
+            F_by_eye_high = F_SSA(freq_range, K12, K22, p)
+            ax.plot(freq_range, F_by_eye_high, label='Component 2', color=color, linestyle='--') 
+
+        if (comp1 != None) and (comp2 != None):
+            ax.plot(freq_range, F_by_eye_low + F_by_eye_high, label='Combined', color=color, linestyle='-')
+
+        ax.set_xscale('log')
+        ax.set_yscale('log')
+        ax.set_xlim(xlim)
+        ax.set_ylim(ylim)
+        ax.set_xlabel('Frequency [GHz]')
+        ax.set_ylabel('Flux Density [mJy]')
+        avg_epoch = (phase_lower + phase_upper) / 2
+        ax.set_title(f'SN 2018ivc SED at {avg_epoch} days')
+        handles, labels = ax.get_legend_handles_labels()
+        by_label = dict(zip(labels, handles))
+        ax.legend(by_label.values(), by_label.keys())
+        fig.tight_layout()
+
+
 def plot_data(ax, sm, data, mode, scaled=False, **kwargs):
     telescope_marker_dict = {'VLA':('s', lime), 'ALMA':('o', bora), 'e-MERLIN':('d', coral)}
 
