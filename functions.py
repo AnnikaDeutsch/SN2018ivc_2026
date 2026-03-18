@@ -48,7 +48,7 @@ cmap = "viridis"
 def plot_single_epoch(phase_lower, phase_upper, data, xlim, ylim,
                       comp1=None, comp2=None, comp3=None,
                       comp1_type='SSA', comp2_type='FFA', comp3_type='SSA',
-                      color=None, ax=None):
+                      color=None, ax=None, freq_scale=[10,10,10]):
     """Plot SED for a specific epoch, with up to 3 components fit by eye"""
     if ax is None:
         fig, ax = plt.subplots(figsize=(8,6), dpi=300)
@@ -88,30 +88,30 @@ def plot_single_epoch(phase_lower, phase_upper, data, xlim, ylim,
         if comp1 != None:
             if comp1_type == 'SSA':
                 K11, K21, alpha1 = comp1
-                F_by_eye_1 = F_SSA(freq_range, K11, K21, alpha1)
+                F_by_eye_1 = F_SSA(freq_range, K11, K21, alpha1, freq_scale=freq_scale[0])
             elif comp1_type == 'FFA':
                 K11, K21, alpha1 = comp1
-                F_by_eye_1 = F_FFA(freq_range, K11, K21, alpha1)
+                F_by_eye_1 = F_FFA(freq_range, K11, K21, alpha1, freq_scale=freq_scale[0])
             ax.plot(freq_range, F_by_eye_1, label=f'{comp1_type} Comp 1', color='orange', linestyle='--')
             total_model = F_by_eye_1 if total_model is None else total_model + F_by_eye_1
 
         if comp2 != None:
             if comp2_type == 'SSA':
                 K12, K22, p2 = comp2
-                F_by_eye_2 = F_SSA(freq_range, K12, K22, p2)
+                F_by_eye_2 = F_SSA(freq_range, K12, K22, p2, freq_scale=freq_scale[1])
             elif comp2_type == 'FFA':
                 K12, K22, p2 = comp2
-                F_by_eye_2 = F_FFA(freq_range, K12, K22, p2)
+                F_by_eye_2 = F_FFA(freq_range, K12, K22, p2, freq_scale=freq_scale[1])
             ax.plot(freq_range, F_by_eye_2, label=f'{comp2_type} Comp 2', color='magenta', linestyle='--')
             total_model = F_by_eye_2 if total_model is None else total_model + F_by_eye_2
 
         if comp3 != None:
             if comp3_type == 'SSA':
                 K13, K23, p3 = comp3
-                F_by_eye_3 = F_SSA(freq_range, K13, K23, p3)
+                F_by_eye_3 = F_SSA(freq_range, K13, K23, p3, freq_scale=freq_scale[2])
             elif comp3_type == 'FFA':
                 K13, K23, p3 = comp3
-                F_by_eye_3 = F_FFA(freq_range, K13, K23, p3)
+                F_by_eye_3 = F_FFA(freq_range, K13, K23, p3, freq_scale=freq_scale[2])
             ax.plot(freq_range, F_by_eye_3, label=f'{comp3_type} Comp 3', color='green', linestyle='--')
             total_model = F_by_eye_3 if total_model is None else total_model + F_by_eye_3
 
@@ -155,28 +155,28 @@ def plot_single_epoch(phase_lower, phase_upper, data, xlim, ylim,
             if comp1 != None:
                 if comp1_type == 'SSA':
                     K11, K21, alpha1 = comp1
-                    F_by_eye_1 = F_SSA(freq_range, K11, K21, alpha1)
+                    F_by_eye_1 = F_SSA(freq_range, K11, K21, alpha1, freq_scale=freq_scale[0])
                 elif comp1_type == 'FFA':
                     K11, K21, alpha1 = comp1
-                    F_by_eye_1 = F_FFA(freq_range, K11, K21, alpha1)
+                    F_by_eye_1 = F_FFA(freq_range, K11, K21, alpha1, freq_scale=freq_scale[0])
                 total_model = F_by_eye_1 if total_model is None else total_model + F_by_eye_1
 
             if comp2 != None:
                 if comp2_type == 'SSA':
                     K12, K22, p2 = comp2
-                    F_by_eye_2 = F_SSA(freq_range, K12, K22, p2)
+                    F_by_eye_2 = F_SSA(freq_range, K12, K22, p2, freq_scale=freq_scale[1])
                 elif comp2_type == 'FFA':
                     K12, K22, p2 = comp2
-                    F_by_eye_2 = F_FFA(freq_range, K12, K22, p2)
+                    F_by_eye_2 = F_FFA(freq_range, K12, K22, p2, freq_scale=freq_scale[1])
                 total_model = F_by_eye_2 if total_model is None else total_model + F_by_eye_2
 
             if comp3 != None:
                 if comp3_type == 'SSA':
                     K13, K23, p3 = comp3
-                    F_by_eye_3 = F_SSA(freq_range, K13, K23, p3)
+                    F_by_eye_3 = F_SSA(freq_range, K13, K23, p3, freq_scale=freq_scale[2])
                 elif comp3_type == 'FFA':
                     K13, K23, p3 = comp3
-                    F_by_eye_3 = F_FFA(freq_range, K13, K23, p3)
+                    F_by_eye_3 = F_FFA(freq_range, K13, K23, p3, freq_scale=freq_scale[2])
                 total_model = F_by_eye_3 if total_model is None else total_model + F_by_eye_3
 
             ax.plot(freq_range, total_model, color=color, linestyle='-')
@@ -351,18 +351,18 @@ def make_corner_plot(good_chain, savefile='corner.png'):
     plt.savefig(savefile, dpi=300, bbox_inches='tight')
 
 #---------------Modelling Functions---------------#
-def find_peak_SSA(K1,K2,p,freqmin,freqmax):
+def find_peak_SSA(K1,K2,p,freqmin,freqmax,freq_scale=10):
     '''find the peak frequecny and flux of a single component SSA curve'''
     freq_range = np.logspace(np.log10(freqmin), np.log10(freqmax), 1000)
-    flux = F_SSA(freq_range, K1, K2, p)
+    flux = F_SSA(freq_range, K1, K2, p, freq_scale=freq_scale)
     peak_idx = np.argmax(flux)
     return freq_range[peak_idx], flux[peak_idx]
 
 
-def find_peak_FFA(K1,K2,alpha,freqmin,freqmax):
+def find_peak_FFA(K1,K2,alpha,freqmin,freqmax,freq_scale=10):
     '''find the peak frequecny and flux of a single component FFA curve'''
     freq_range = np.logspace(np.log10(freqmin), np.log10(freqmax), 1000)
-    flux = F_FFA(freq_range, K1, K2, alpha)
+    flux = F_FFA(freq_range, K1, K2, alpha, freq_scale=freq_scale)
     peak_idx = np.argmax(flux)
     return freq_range[peak_idx], flux[peak_idx]
 
