@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 from os import system, chdir, makedirs, getcwd
 from sys import stdout
 from glob import glob
@@ -33,7 +33,7 @@ print(f"Script started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 base_dir = os.getcwd() # the location of this script
 
-log_path = os.path.join(base_dir, timestamp, "log.txt")
+log_path = os.path.join(base_dir, f"{timestamp}_log.txt")
 log_file = open(log_path, "w")
 
 # Redirect stdout and stderr to both console and file
@@ -60,7 +60,7 @@ def main():
     "reading in from a file or taking in the parameters directly from the command line.")
     parser.add_argument("--nu_peak", "-n", type=float, help="Peak frequency of the SSA curve in GHz.")
     parser.add_argument("--flux_peak", "-f", type=float, help="Peak flux density of the SSA curve in mJy.")
-    parser.add_argument("--electron_index", "-p", required=True, type=float, default=3.0, help="Electron energy distribution index (p).")
+    parser.add_argument("--electron_index", "-p", required=True, type=float, help="Electron energy distribution index (p).")
     parser.add_argument("--K1", "-k", type=float, default=1.0, help="K1 constant for the SSA model.")
     parser.add_argument("--K2", "-l", type=float, default=1.0, help="K2 constant for the SSA model.")
     parser.add_argument("--time_obs", "-t", required=True, type=float, help="Time of observation in days post explosion.")
@@ -68,19 +68,8 @@ def main():
     parser.add_argument("--fmax", "-M", type=float, default=275.0, help="Maximum frequency for the SSA curve in GHz.")
     args = parser.parse_args()
 
-    # check if electron index is provided and valid
-    if args.electron_index is None or args.electron_index <= 0:
-        print("Error: Electron energy distribution index (p) must be provided and greater than 0.")
-        sys.exit(1)
-    else:
-        p = args.electron_index
-
-    # check if time of observation is provided and valid
-    if args.time_obs is None or args.time_obs <= 0:
-        print("Error: Time of observation must be provided and greater than 0.")
-        sys.exit(1)
-    else:
-        t = args.time_obs
+    p = args.electron_index
+    t = args.time_obs
 
     # read in params from model independent config file
     config_path = os.path.join(base_dir, "model_indep_params.yml")
@@ -90,11 +79,11 @@ def main():
     else:
         with open(config_path, "r") as f:
             config = yaml.safe_load(f)
-        D = config["physical"]["D"]
-        D_scale = config["scales"]["D_scale"]
-        nu_p_scale = config["scales"]["nu_p_scale"]
-        F_p_scale = config["scales"]["F_p_scale"]
-        vel_conv = config["conversion"]["cmday_to_kmsec"]
+        D = config["physical"]["D"]["value"]
+        D_scale = config["scales"]["D_scale"]["value"]
+        nu_p_scale = config["scales"]["nu_p_scale"]["value"]
+        F_p_scale = config["scales"]["F_p_scale"]["value"]
+        vel_conv = config["conversion"]["cmday_to_kmsec"]["value"]
 
     # check if nu_peak and flux_peak need to be calculated. If so, calculate
     if args.nu_peak is None or args.flux_peak is None:
@@ -115,4 +104,11 @@ def main():
     print(f"Velocity (v): {v:.2f} km/s")
     print(f"Magnetic Field (B): {B:.2f} G")
 
+if __name__ == "__main__":
+    main()
 
+end_time = time.time()
+print(f"Script ended at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+print(f"Total runtime: {end_time - start_time:.2f} seconds")
+
+log_file.close()
