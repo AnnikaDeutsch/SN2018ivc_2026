@@ -1,0 +1,71 @@
+physical:
+  D:
+    value: 10.1
+    unit: Mpc
+    note: adopted by Maeda et al. 2023 and Boestrom et al. 2020
+  D_err:
+    value: 1.8
+    unit: Mpc
+
+  v_wind:
+    value: 20
+    unit: km/s
+    note: used in Maeda+2023a
+
+  v_ej:
+    value: 7000
+    unit: km/s
+    note: adopted from Boestrom et al. 2020
+
+  T_e:
+    value: 1.0e5
+    unit: K
+
+  epsilon_B:
+    value: 0.012
+    note: Maeda+2023a Model A
+
+  m_H:
+    value: 1
+    note: fractional mass normalization
+
+scales:
+  F_p_scale:
+    value: 1
+    unit: Jy
+
+  D_scale:
+    value: 1
+    unit: Mpc
+
+  nu_p_scale:
+    value: 5
+    unit: GHz
+    note: eqn 12 of Chandra 2018
+
+  v_wind_scale:
+    value: 10
+    unit: km/s
+
+  v_ej_scale:
+    value: 1.0e4
+    unit: km/s
+
+  T_e_scale:
+    value: 1.0e5
+    unit: K
+
+  t_scale:
+    value: 100
+    unit: days
+
+  epsilon_B_scale:
+    value: 0.1
+
+  B_scale:
+    value: 1
+    unit: Gauss
+
+conversion:
+  cmday_to_kmsec:
+    value: 1.1574e-10   # = 1 / (1e5 * 86400)
