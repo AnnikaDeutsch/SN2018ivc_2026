@@ -387,7 +387,7 @@ def time_slope_for_freq(data, nu_target, tol=1e-3):
 
 def F_SSA(freq, K1, K2, p, freq_scale=10):
     """
-    Calculate the flux density using Synchotron Self Absorption (SSA) model.
+    Calculate the flux density using Synchotron Self Absorption (SSA) model. (based on Chandra 2018)
 
     Parameters:
     freq (float or numpy.ndarray): Frequency values.
@@ -405,6 +405,22 @@ def F_SSA(freq, K1, K2, p, freq_scale=10):
 
 
 def F_SSA_time(freq, time, K1, K2, p, a, b, freq_scale=10):
+    """
+    Calculate the flux density using Synchotron Self Absorption (SSA) model, time dependent. (based on Chandra 2018)
+
+    Parameters:
+    freq (float or numpy.ndarray): Frequency values.
+    time (float or numpy.ndarray): Time values.
+    K1 (float): Scaling factor.
+    K2 (float): Scaling factor for the optical depth.
+    p (float): Power-law index.
+    a (float): Time evolution index for the flux density.
+    b (float): Time evolution index for the optical depth.
+    freq_scale (float): Frequency scale for normalization (default is 10 GHz).
+
+    Returns:
+    F (numpy.ndarray): Flux density values.
+    """
     tau = K2 * (freq/freq_scale)**(-(p + 4) / 2) * time**(-(a+b))
     F = K1 * (freq/freq_scale)**(5/2) * (time**a) * (1 - np.exp(-tau))
     return F    
@@ -412,13 +428,14 @@ def F_SSA_time(freq, time, K1, K2, p, a, b, freq_scale=10):
 
 def F_FFA(freq, K1, K2, alpha, freq_scale=10):
     """
-    Calculate the flux density using Synchotron Self Absorption (FFA) model.
+    Calculate the flux density using Free Free Absorption (FFA) model. Based on Chandra 2018
 
     Parameters:
     freq (float or numpy.ndarray): Frequency values.
     K1 (float): Scaling factor.
     K2 (float): Scaling factor for the optical depth.
-    p (float): Power-law index.
+    alpha (float): Spectral index for the flux density.
+    freq_scale (float): Frequency scale for normalization (default is 10 GHz).
 
     Returns:
     F (numpy.ndarray): Flux density values.
@@ -429,6 +446,22 @@ def F_FFA(freq, K1, K2, alpha, freq_scale=10):
 
 
 def F_FFA_time(freq, time, K1, K2, alpha, beta, delta, freq_scale=10):
+    """
+    Calculate the flux density using Free Free Absorption (FFA) model. Based on Chandra 2018
+
+    Parameters:
+    freq (float or numpy.ndarray): Frequency values.
+    time (float or numpy.ndarray): Time values.
+    K1 (float): Scaling factor.
+    K2 (float): Scaling factor for the optical depth.
+    alpha (float): Spectral index for the flux density.
+    beta (float): Time evolution index for the flux density.
+    delta (float): Time evolution index for the optical depth.
+    freq_scale (float): Frequency scale for normalization (default is 10 GHz).
+
+    Returns:
+    F (numpy.ndarray): Flux density values.
+    """
     tau = K2 * (freq/freq_scale)**(-2.1) * time**(-delta)
     F = K1 * (freq/freq_scale)**(-alpha) * (time**(-beta)) * (np.exp(-tau))
     return F
