@@ -1,0 +1,118 @@
+#!/usr/bin/python
+from os import system, chdir, makedirs, getcwd
+from sys import stdout
+from glob import glob
+import time
+from datetime import datetime
+import sys
+import os
+import subprocess
+from pathlib import Path
+import argparse
+import yaml
+import functions
+import numpy as np
+
+class Tee:
+    def __init__(self, *streams):
+        self.streams = streams
+
+    def write(self, data):
+        for s in self.streams:
+            s.write(data)
+            s.flush()
+
+    def flush(self):
+        for s in self.streams:
+            s.flush()
+
+start_time = time.time()
+print(f"Script started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
+# Each time this script is run, create a new directory and store all outputs in it
+timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+base_dir = os.getcwd() # the location of this script
+
+log_path = os.path.join(base_dir, timestamp, "log.txt")
+log_file = open(log_path, "w")
+
+# Redirect stdout and stderr to both console and file
+sys.stdout = Tee(sys.__stdout__, log_file)
+sys.stderr = Tee(sys.__stderr__, log_file)
+
+def myexecute(cmd, run=True):
+    print(f"\nRunning: '{cmd}'\n")
+    if not run:
+        return 0  # pretend success
+    process = subprocess.Popen(
+            cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+    )
+    for line in process.stdout:
+        print(line, end='') # make sure everything printed to the terminal goes thru Tee and gets saved in log file
+        sys.stdout.flush()
+    rc = process.wait()
+    if rc != 0:
+        raise RuntimeError(f"Command failed with exit code {rc}: {cmd}")
+    return rc
+
+def main():
+    parser = argparse.ArgumentParser(description="Calculate the radius, velocity, and B field of the emitting region given an SSA curve, either " \
+    "reading in from a file or taking in the parameters directly from the command line.")
+    parser.add_argument("--nu_peak", "-n", type=float, help="Peak frequency of the SSA curve in GHz.")
+    parser.add_argument("--flux_peak", "-f", type=float, help="Peak flux density of the SSA curve in mJy.")
+    parser.add_argument("--electron_index", "-p", required=True, type=float, default=3.0, help="Electron energy distribution index (p).")
+    parser.add_argument("--K1", "-k", type=float, default=1.0, help="K1 constant for the SSA model.")
+    parser.add_argument("--K2", "-l", type=float, default=1.0, help="K2 constant for the SSA model.")
+    parser.add_argument("--time_obs", "-t", required=True, type=float, help="Time of observation in days post explosion.")
+    parser.add_argument("--fmin", "-m", type=float, default=2.0, help="Minimum frequency for the SSA curve in GHz.")
+    parser.add_argument("--fmax", "-M", type=float, default=275.0, help="Maximum frequency for the SSA curve in GHz.")
+    args = parser.parse_args()
+
+    # check if electron index is provided and valid
+    if args.electron_index is None or args.electron_index <= 0:
+        print("Error: Electron energy distribution index (p) must be provided and greater than 0.")
+        sys.exit(1)
+    else:
+        p = args.electron_index
+
+    # check if time of observation is provided and valid
+    if args.time_obs is None or args.time_obs <= 0:
+        print("Error: Time of observation must be provided and greater than 0.")
+        sys.exit(1)
+    else:
+        t = args.time_obs
+
+    # read in params from model independent config file
+    config_path = os.path.join(base_dir, "model_indep_params.yml")
+    if not os.path.exists(config_path):
+        print(f"Error: Configuration file '{config_path}' not found.")
+        sys.exit(1)
+    else:
+        with open(config_path, "r") as f:
+            config = yaml.safe_load(f)
+        D = config["physical"]["D"]
+        D_scale = config["scales"]["D_scale"]
+        nu_p_scale = config["scales"]["nu_p_scale"]
+        F_p_scale = config["scales"]["F_p_scale"]
+        vel_conv = config["conversion"]["cmday_to_kmsec"]
+
+    # check if nu_peak and flux_peak need to be calculated. If so, calculate
+    if args.nu_peak is None or args.flux_peak is None:
+        print("Calculating nu_peak and flux_peak from SSA curve...")
+        nu_peak, flux_peak = functions.find_peak_SSA(args.K1, args.K2, args.electron_index, args.fmin, args.fmax)
+    else:
+        nu_peak = args.nu_peak
+        flux_peak = args.flux_peak
+    
+    # calculate R, v, and B
+    R = functions.R_peak_SSA(p, flux_peak, D, nu_peak, F_p_scale, D_scale, nu_p_scale)
+    v = (R/t) * vel_conv
+    B = functions.B_peak_SSA(p, flux_peak, D, nu_peak, F_p_scale, D_scale, nu_p_scale)
+
+    # nicely print results to command line
+    print(f"\nResults:")
+    print(f"Radius (R): {R:.2e} cm")
+    print(f"Velocity (v): {v:.2f} km/s")
+    print(f"Magnetic Field (B): {B:.2f} G")
+
+
