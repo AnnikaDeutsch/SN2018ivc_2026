@@ -1,5 +1,13 @@
 '''
-.py file to hold all general use plotting and modelling functions 
+Module to hold all general use plotting, modelling, and physical parameter calculation functions.
+Created September 2023
+
+@author: Annika Deutsch
+@date: 09/2023
+@title: functions.py
+@CPU: Apple M3
+@Operating System: macOS 15.7.1 24G231
+@Interpreter and version no.: Python 3.12.2
 '''
 
 import numpy as np
@@ -464,6 +472,21 @@ def F_FFA_time(freq, time, K1, K2, alpha, beta, delta, freq_scale=10):
     """
     tau = K2 * (freq/freq_scale)**(-2.1) * time**(-delta)
     F = K1 * (freq/freq_scale)**(-alpha) * (time**(-beta)) * (np.exp(-tau))
+    return F
+
+
+def F_SSA_Nayana(nu, F_p, nu_p, alpha):
+    """Calculate the flux density using the SSA, single epoch model from Nayana et al. 2022
+
+    Parameters: 
+    nu (float or numpy.ndarray): Frequency values.
+    F_p (float): Peak flux density.
+    nu_p (float): Peak frequency.
+    alpha (float): Spectral index for the flux density.
+    
+    """
+    exp = (1 - np.exp(-(nu/nu_p)**(-(5-2*alpha)/2)))
+    F = 1.582 * F_p * (nu/nu_p)**(5/2) * exp
     return F
 
 
