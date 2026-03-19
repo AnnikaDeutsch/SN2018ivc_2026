@@ -66,6 +66,10 @@ scales:
     value: 1
     unit: Gauss
 
+  L_bol_scale:
+    value: 10.0e42
+    unit: erg/s
+
 conversion:
   cmday_to_kmsec:
     value: 1.1574e-10   # = 1 / (1e5 * 86400)
