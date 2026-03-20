@@ -65,9 +65,10 @@ def main():
     B = functions.B_peak_SSA(p, flux_peak, D, nu_peak, F_p_scale, D_scale, nu_p_scale)
 
     # nicely print results to command line
-    print(f"\nAn SSA dominated synchrotron emission component with\n:")
-    print(f"Electron index (p): {p}, peak frequency (nu_peak): {nu_peak:.2f} GHz, and peak flux density (flux_peak): {flux_peak:.2f} mJy\n")
-    print(f"at time of observation (t): {t:.2f} days post explosion and a distance {D:.2f} Mpc, corresponds to the following physical parameters:")
+    print(f"\nAn SSA dominated synchrotron emission component with:")
+    print("-------------------------------------------------------------")
+    print(f"Electron index (p): {p},\nPeak frequency (nu_peak): {nu_peak:.2f} GHz,\nPeak flux density (flux_peak): {flux_peak:.2f} mJy,")
+    print(f"Time of observation (t): {t:.2f} days,\nDistance: {D:.2f} Mpc,\ncorresponds to the following physical parameters:")
     print("-------------------------------------------------------------")
     print(f"Radius (R): {R:.2e} cm")
     print(f"Velocity (v): {v:.2f} km/s")
