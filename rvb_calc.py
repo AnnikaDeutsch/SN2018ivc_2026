@@ -13,18 +13,6 @@ import yaml
 import functions
 import numpy as np
 
-class Tee:
-    def __init__(self, *streams):
-        self.streams = streams
-
-    def write(self, data):
-        for s in self.streams:
-            s.write(data)
-            s.flush()
-
-    def flush(self):
-        for s in self.streams:
-            s.flush()
 
 start_time = time.time()
 print(f"Script started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
@@ -32,28 +20,6 @@ print(f"Script started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 # Each time this script is run, create a new directory and store all outputs in it
 timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 base_dir = os.getcwd() # the location of this script
-
-log_path = os.path.join(base_dir, f"{timestamp}_log.txt")
-log_file = open(log_path, "w")
-
-# Redirect stdout and stderr to both console and file
-sys.stdout = Tee(sys.__stdout__, log_file)
-sys.stderr = Tee(sys.__stderr__, log_file)
-
-def myexecute(cmd, run=True):
-    print(f"\nRunning: '{cmd}'\n")
-    if not run:
-        return 0  # pretend success
-    process = subprocess.Popen(
-            cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
-    )
-    for line in process.stdout:
-        print(line, end='') # make sure everything printed to the terminal goes thru Tee and gets saved in log file
-        sys.stdout.flush()
-    rc = process.wait()
-    if rc != 0:
-        raise RuntimeError(f"Command failed with exit code {rc}: {cmd}")
-    return rc
 
 def main():
     parser = argparse.ArgumentParser(description="Calculate the radius, velocity, and B field of the emitting region given an SSA curve, either " \
@@ -99,16 +65,13 @@ def main():
     B = functions.B_peak_SSA(p, flux_peak, D, nu_peak, F_p_scale, D_scale, nu_p_scale)
 
     # nicely print results to command line
-    print(f"\nResults:")
+    print(f"\nAn SSA dominated synchrotron emission component with\n:")
+    print(f"Electron index (p): {p}, peak frequency (nu_peak): {nu_peak:.2f} GHz, and peak flux density (flux_peak): {flux_peak:.2f} mJy\n")
+    print(f"at time of observation (t): {t:.2f} days post explosion and a distance {D:.2f} Mpc, corresponds to the following physical parameters:")
+    print("-------------------------------------------------------------")
     print(f"Radius (R): {R:.2e} cm")
     print(f"Velocity (v): {v:.2f} km/s")
     print(f"Magnetic Field (B): {B:.2f} G")
 
 if __name__ == "__main__":
     main()
-
-end_time = time.time()
-print(f"Script ended at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-print(f"Total runtime: {end_time - start_time:.2f} seconds")
-
-log_file.close()
