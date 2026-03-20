@@ -27,6 +27,7 @@ import pandas as pd
 import lmfit
 from matplotlib import rcParams
 from matplotlib.colors import LinearSegmentedColormap
+import yaml
 
 # define colors used in dark mode
 lime = '#e4ffba'
@@ -491,6 +492,18 @@ def F_SSA_Nayana(nu, F_p, nu_p, alpha):
 
 
 def calc_params(data, model, initial_guess, bounds):
+    """
+    Find the best fit parameters for either SSA or FFA (optionally time dependent) using curve_fit.
+    These will be supplied as the inital guess for the MCMC fitting.
+    Parameters:
+      data (astropy table or pandas dataframe): The data to fit, must contain columns 'freq', 'phase', 'flux', and 'flux_err'.
+      model (function): The model function to fit, either F_SSA, F_SSA_time, F_FFA, or F_FFA_time.
+      initial_guess (tuple): Initial guess for the parameters to be fitted, in the order (K1, K2, p/alpha, a/beta, b/delta).
+      bounds (tuple): Bounds for the parameters to be fitted, in the order ((K1_min, K2_min, p/alpha_min, a/beta_min, b/delta_min), (K1_max, K2_max, p/alpha_max, a/beta_max, b/delta_max)).
+
+    Returns:
+      results (dict): A dictionary containing the best fit parameters and their uncertainties, in the format {'K1': (K1_fit, K1_err), 'K2': (K2_fit, K2_err), 'p/alpha': (p_fit, p_err), 'a/beta': (a_fit, a_err), 'b/delta': (b_fit, b_err)}.
+    """
     # define variables from data
     freq = data['freq'].astype(float)
     time = data['phase'].astype(float)
@@ -595,6 +608,28 @@ def get_best_params(chain):
     param_names = ['$K_1$', '$K_2$','$p$', '$a$', '$b$']
     param_dict = dict(zip(param_names,vals))
     return param_dict
+
+
+def load_model_indep_params(config_path):
+    """
+    Load in model independent parameters from the config file in the directory
+    Parameters:
+      config_path (str): Path to the config file, should be in the same directory as the data file and the notebook.
+    Returns:
+      D (float): Distance to the supernova in cm.
+      D_scale (float): Distance scale for normalization, in cm.
+      nu_p_scale (float): Peak frequency scale for normalization, in GHz.
+      F_p_scale (float): Peak flux density scale for normalization, in mJy.
+      vel_conv (float): Velocity conversion factor from cm/day to km/s.
+    """
+    with open(config_path, "r") as f:
+        config = yaml.safe_load(f)
+        D = config["physical"]["D"]["value"]
+        D_scale = config["scales"]["D_scale"]["value"]
+        nu_p_scale = config["scales"]["nu_p_scale"]["value"]
+        F_p_scale = config["scales"]["F_p_scale"]["value"]
+        vel_conv = config["conversion"]["cmday_to_kmsec"]["value"]
+    return D, D_scale, nu_p_scale, F_p_scale, vel_conv
 
 #---------------Physical Parameter Calculations---------------#
 def B_peak_SSA(p, F_p, D, nu_p, F_p_scale, D_scale, nu_p_scale):
