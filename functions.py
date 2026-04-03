@@ -192,8 +192,8 @@ def plot_single_epoch(phase_lower, phase_upper, data, xlim, ylim,
             ax.errorbar(x_ALMA, y_ALMA, yerr=yerr_ALMA, fmt='^', color=color, markersize=10)
             ax.errorbar(x_VLA, y_VLA, yerr=yerr_VLA, fmt='s', color=color, label=f'{avg_epoch:.2f}', markersize=10)
         else:
-            ax.errorbar(x_ALMA, y_ALMA, yerr=yerr_ALMA, fmt='^-', color=color, markersize=10)
-            ax.errorbar(x_VLA, y_VLA, yerr=yerr_VLA, fmt='s-', color=color, label=f'{avg_epoch:.2f}', markersize=10)
+            ax.errorbar(x_ALMA, y_ALMA, yerr=yerr_ALMA, fmt='^', color=color, markersize=10)
+            ax.errorbar(x_VLA, y_VLA, yerr=yerr_VLA, fmt='s', color=color, label=f'{avg_epoch:.2f}', markersize=10)
 
         ax.set_xscale('log')
         ax.set_yscale('log')
@@ -478,62 +478,162 @@ def F_FFA_time(freq, time, K1, K2, alpha, beta, delta, freq_scale=10):
 
 def F_SSA_Nayana(nu, F_p, nu_p, alpha):
     """Calculate the flux density using the SSA, single epoch model from Nayana et al. 2022
-
     Parameters: 
     nu (float or numpy.ndarray): Frequency values.
     F_p (float): Peak flux density.
     nu_p (float): Peak frequency.
     alpha (float): Spectral index for the flux density.
-    
     """
     exp = (1 - np.exp(-(nu/nu_p)**(-(5-2*alpha)/2)))
     F = 1.582 * F_p * (nu/nu_p)**(5/2) * exp
     return F
 
 
-def calc_params(data, model, initial_guess, bounds):
+def F_SSA_Nayana_2comp(nu, F_p1, nu_p1, alpha1, F_p2, nu_p2, alpha2):
+    """Calculate the flux density using the SSA, single epoch model from Nayana et al. 2022
+    Parameters: 
+    nu (float or numpy.ndarray): Frequency values.
+    F_p1 (float): Peak flux density of component 1.
+    nu_p1 (float): Peak frequency of component 1.
+    alpha1 (float): Spectral index for the flux density of component 1.
+    F_p2 (float): Peak flux density of component 2.
+    nu_p2 (float): Peak frequency of component 2.
+    alpha2 (float): Spectral index for the flux density of component 2.
     """
-    Find the best fit parameters for either SSA or FFA (optionally time dependent) using curve_fit.
-    These will be supplied as the inital guess for the MCMC fitting.
-    Parameters:
-      data (astropy table or pandas dataframe): The data to fit, must contain columns 'freq', 'phase', 'flux', and 'flux_err'.
-      model (function): The model function to fit, either F_SSA, F_SSA_time, F_FFA, or F_FFA_time.
-      initial_guess (tuple): Initial guess for the parameters to be fitted, in the order (K1, K2, p/alpha, a/beta, b/delta).
-      bounds (tuple): Bounds for the parameters to be fitted, in the order ((K1_min, K2_min, p/alpha_min, a/beta_min, b/delta_min), (K1_max, K2_max, p/alpha_max, a/beta_max, b/delta_max)).
+    F1 = F_SSA_Nayana(nu, F_p1, nu_p1, alpha1)
+    F2 = F_SSA_Nayana(nu, F_p2, nu_p2, alpha2)
+    return F1 + F2
 
-    Returns:
-      results (dict): A dictionary containing the best fit parameters and their uncertainties, in the format {'K1': (K1_fit, K1_err), 'K2': (K2_fit, K2_err), 'p/alpha': (p_fit, p_err), 'a/beta': (a_fit, a_err), 'b/delta': (b_fit, b_err)}.
+
+def F_SSA_Nayana_3comp(nu, F_p1, nu_p1, alpha1, F_p2, nu_p2, alpha2, F_p3, nu_p3, alpha3):
+    """Calculate the flux density using the SSA, single epoch model from Nayana et al. 2022
+    Parameters: 
+    nu (float or numpy.ndarray): Frequency values.
+    F_p1 (float): Peak flux density of component 1.
+    nu_p1 (float): Peak frequency of component 1.
+    alpha1 (float): Spectral index for the flux density of component 1.
+    F_p2 (float): Peak flux density of component 2.
+    nu_p2 (float): Peak frequency of component 2.
+    alpha2 (float): Spectral index for the flux density of component 2.
+    F_p3 (float): Peak flux density of component 3.
+    nu_p3 (float): Peak frequency of component 3.
+    alpha3 (float): Spectral index for the flux density of component 3.
     """
-    # define variables from data
-    freq = data['freq'].astype(float)
-    time = data['phase'].astype(float)
-    flux = data['flux'].astype(float)
-    flux_err = data['flux_err'].astype(float)
+    F1 = F_SSA_Nayana(nu, F_p1, nu_p1, alpha1)
+    F2 = F_SSA_Nayana(nu, F_p2, nu_p2, alpha2)
+    F3 = F_SSA_Nayana(nu, F_p3, nu_p3, alpha3)
+    return F1 + F2 + F3
 
-    # Wrap the model so that curve_fit sees only (freq, params...)
-    def wrapped_model(freq, K1, K2, p, a, b):
-        return model(freq, time, K1, K2, p, a, b)
+
+def calc_params_curvefit(data, model, initial_guess, bounds, n_components=1):
+    """
+    Find the best fit parameters for either SSA or FFA (optionally time dependent) model using curve_fit.
+    These will be supplied as the inital guess for the MCMC fitting. Optionally additive sum of identical
+    model components.
+
+    Parameters
+    ----------
+    data : astropy table or pandas dataframe
+        Must contain columns 'freq', 'phase', 'flux', and 'flux_err'.
+    model : function
+        Model function to fit. Supported forms are either:
+          - model(freq, K1, K2, p)
+          - model(freq, time, K1, K2, p, a, b)
+    initial_guess : tuple/list
+        Flattened initial guess for all components.
+        Example for 2 time-dependent components:
+          (K1_1, K2_1, p_1, a_1, b_1, K1_2, K2_2, p_2, a_2, b_2)
+    bounds : tuple
+        Tuple of (lower_bounds, upper_bounds), flattened in the same order as initial_guess.
+    n_components : int, optional
+        Number of additive components to fit.
+
+    Returns
+    -------
+    results : dict
+        Dictionary with one entry per component:
+          {
+            "component_1": {"K1": (val, err), "K2": (val, err), ...},
+            "component_2": {"K1": (val, err), "K2": (val, err), ...},
+            ...
+          }
+    """
+    freq = np.asarray(data['freq'], dtype=float)
+    time = np.asarray(data['phase'], dtype=float)
+    flux = np.asarray(data['flux'], dtype=float)
+    flux_err = np.asarray(data['flux_err'], dtype=float)
+
+    initial_guess = np.asarray(initial_guess, dtype=float)
+    lower_bounds = np.asarray(bounds[0], dtype=float)
+    upper_bounds = np.asarray(bounds[1], dtype=float)
+
+    if len(initial_guess) != len(lower_bounds) or len(initial_guess) != len(upper_bounds):
+        raise ValueError("initial_guess and bounds must all have the same flattened length.")
+
+    if len(initial_guess) % n_components != 0:
+        raise ValueError(
+            f"Length of initial_guess ({len(initial_guess)}) must be divisible by "
+            f"n_components ({n_components})."
+        )
+
+    n_params_per_component = len(initial_guess) // n_components
+
+    # Choose parameter names based on params/component
+    if n_params_per_component == 3:
+        param_names = ['K1', 'K2', 'p']
+    elif n_params_per_component == 5:
+        param_names = ['K1', 'K2', 'p', 'a', 'b']
+    else:
+        param_names = [f'param_{i+1}' for i in range(n_params_per_component)]
+
+    def call_model(freq, time, params):
+        """
+        Try time-dependent form first, then non-time-dependent form.
+        """
+        try:
+            return model(freq, time, *params)
+        except TypeError:
+            return model(freq, *params)
+
+    def wrapped_model(freq, *all_params):
+        """
+        Sum n_components identical model components additively.
+        """
+        total = np.zeros_like(freq, dtype=float)
+
+        for i in range(n_components):
+            start = i * n_params_per_component
+            stop = (i + 1) * n_params_per_component
+            comp_params = all_params[start:stop]
+            total += call_model(freq, time, comp_params)
+
+        return total
 
     params, covariance = curve_fit(
         wrapped_model,
         freq,
         flux,
         p0=initial_guess,
-        bounds=bounds,
+        bounds=(lower_bounds, upper_bounds),
         sigma=flux_err,
         absolute_sigma=True
     )
 
-    K1_fit, K2_fit, p_fit, a_fit, b_fit = params
-    K1_err, K2_err, p_err, a_err, b_err = np.sqrt(np.diag(covariance))
+    param_errs = np.sqrt(np.diag(covariance))
 
-    results = {
-        'K1': (K1_fit, K1_err),
-        'K2': (K2_fit, K2_err),
-        'p':  (p_fit,  p_err),
-        'a':  (a_fit,  a_err),
-        'b':  (b_fit,  b_err),
-    }
+    # Unpack results by component
+    results = {}
+    for i in range(n_components):
+        start = i * n_params_per_component
+        stop = (i + 1) * n_params_per_component
+
+        comp_params = params[start:stop]
+        comp_errs = param_errs[start:stop]
+
+        results[f'component_{i+1}'] = {
+            name: (val, err)
+            for name, val, err in zip(param_names, comp_params, comp_errs)
+        }
 
     return results
 
