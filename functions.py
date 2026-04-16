@@ -28,6 +28,7 @@ import lmfit
 from matplotlib import rcParams
 from matplotlib.colors import LinearSegmentedColormap
 import yaml
+from matplotlib.colors import to_hex
 
 # define colors used in dark mode
 lime = '#e4ffba'
@@ -54,6 +55,11 @@ cmap = "viridis"
 
 
 #---------------Plotting Functions---------------#
+def get_viridis_hex(n):
+    cmap = plt.get_cmap("viridis")
+    return [to_hex(cmap(i)) for i in np.linspace(0, 1, n)]
+
+
 def plot_single_epoch(phase_lower, phase_upper, data, xlim, ylim,
                       comp1=None, comp2=None, comp3=None,
                       comp1_type='SSA', comp2_type='FFA', comp3_type='SSA',
@@ -65,9 +71,6 @@ def plot_single_epoch(phase_lower, phase_upper, data, xlim, ylim,
         fig = None
 
     if color == None:
-        mask = ((data['phase'] > phase_lower) & (data['phase'] < phase_upper))
-        data_epoch = data[mask]
-
         avg_epoch = np.mean(data_epoch['phase'])
 
         # color code by telescope
@@ -476,52 +479,53 @@ def F_FFA_time(freq, time, K1, K2, alpha, beta, delta, freq_scale=10):
     return F
 
 
-def F_SSA_Nayana(nu, F_p, nu_p, alpha):
+def F_SSA_Nayana(nu, F_p, nu_p, p):
     """Calculate the flux density using the SSA, single epoch model from Nayana et al. 2022
     Parameters: 
     nu (float or numpy.ndarray): Frequency values.
     F_p (float): Peak flux density.
     nu_p (float): Peak frequency.
-    alpha (float): Spectral index for the flux density.
+    p (float): electron energy index for the flux density.
     """
-    exp = (1 - np.exp(-(nu/nu_p)**(-(5-2*alpha)/2)))
-    F = 1.582 * F_p * (nu/nu_p)**(5/2) * exp
+    alpha = (p-1)/2 # convert from electron energy to spectral index
+    atten = (1 - np.exp(-(nu/nu_p)**(-(5-2*(-alpha))/2)))
+    F = 1.582 * F_p * (nu/nu_p)**(5/2) * atten
     return F
 
 
-def F_SSA_Nayana_2comp(nu, F_p1, nu_p1, alpha1, F_p2, nu_p2, alpha2):
+def F_SSA_Nayana_2comp(nu, F_p1, nu_p1, p1, F_p2, nu_p2, p2):
     """Calculate the flux density using the SSA, single epoch model from Nayana et al. 2022
     Parameters: 
     nu (float or numpy.ndarray): Frequency values.
     F_p1 (float): Peak flux density of component 1.
     nu_p1 (float): Peak frequency of component 1.
-    alpha1 (float): Spectral index for the flux density of component 1.
+    p1 (float): electron energy index for the flux density of component 1.
     F_p2 (float): Peak flux density of component 2.
     nu_p2 (float): Peak frequency of component 2.
-    alpha2 (float): Spectral index for the flux density of component 2.
+    p2 (float): electron energy index for the flux density of component 2.
     """
-    F1 = F_SSA_Nayana(nu, F_p1, nu_p1, alpha1)
-    F2 = F_SSA_Nayana(nu, F_p2, nu_p2, alpha2)
+    F1 = F_SSA_Nayana(nu, F_p1, nu_p1, p1)
+    F2 = F_SSA_Nayana(nu, F_p2, nu_p2, p2)
     return F1 + F2
 
 
-def F_SSA_Nayana_3comp(nu, F_p1, nu_p1, alpha1, F_p2, nu_p2, alpha2, F_p3, nu_p3, alpha3):
+def F_SSA_Nayana_3comp(nu, F_p1, nu_p1, p1, F_p2, nu_p2, p2, F_p3, nu_p3, p3):
     """Calculate the flux density using the SSA, single epoch model from Nayana et al. 2022
     Parameters: 
     nu (float or numpy.ndarray): Frequency values.
     F_p1 (float): Peak flux density of component 1.
     nu_p1 (float): Peak frequency of component 1.
-    alpha1 (float): Spectral index for the flux density of component 1.
+    p1 (float): electron energy index for the flux density of component 1.
     F_p2 (float): Peak flux density of component 2.
     nu_p2 (float): Peak frequency of component 2.
-    alpha2 (float): Spectral index for the flux density of component 2.
+    p2 (float): electron energy index for the flux density of component 2.
     F_p3 (float): Peak flux density of component 3.
     nu_p3 (float): Peak frequency of component 3.
-    alpha3 (float): Spectral index for the flux density of component 3.
+    p3 (float): electron energy index for the flux density of component 3.
     """
-    F1 = F_SSA_Nayana(nu, F_p1, nu_p1, alpha1)
-    F2 = F_SSA_Nayana(nu, F_p2, nu_p2, alpha2)
-    F3 = F_SSA_Nayana(nu, F_p3, nu_p3, alpha3)
+    F1 = F_SSA_Nayana(nu, F_p1, nu_p1, p1)
+    F2 = F_SSA_Nayana(nu, F_p2, nu_p2, p2)
+    F3 = F_SSA_Nayana(nu, F_p3, nu_p3, p3)
     return F1 + F2 + F3
 
 
