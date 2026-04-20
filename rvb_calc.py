@@ -1,4 +1,17 @@
 #!/usr/bin/env python3
+
+'''
+Python script to take the peak frequency and flux density of an SSA synchrotron emission curve,
+and calculate the radius, velocity, and magnetic field strength of the emitting region.
+
+@author: Annika Deutsch
+@date: 03/2026
+@title: rvb_calc.py
+@CPU: Apple M3
+@Operating System: macOS 15.7.1 24G231
+@Interpreter and version no.: Python 3.10.20
+'''
+
 from os import system, chdir, makedirs, getcwd
 from sys import stdout
 from glob import glob
