@@ -1026,6 +1026,6 @@ def t_ffa_optically_thin(t, m, v, nu):
     temp = (t/10**4)**(-3/10)
     mass = (m/2)**(-1/5)
     velocity = (v/300)**(-1)
-    frequency = (nu/10**9)**(-2/5)
+    frequency = (nu/1)**(-2/5)
     t_ffa = 470 * temp * mass * velocity * frequency
     return t_ffa
