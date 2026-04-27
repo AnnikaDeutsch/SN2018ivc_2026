@@ -1012,3 +1012,20 @@ def t_IC_ratio(L_bol, epsilon_B, Mdot, v_wind, v_ej, nu, t, L_bol_scale, epsilon
     '''cooling timescale if inverse Compton cooling dominant'''
     t_IC_ratio = 0.18 * ((L_bol/L_bol_scale)**(-1.0)) * ((epsilon_B/epsilon_B_scale)**(1.0/4.0)) * ((Mdot/Mdot_scale)**(1.0/4.0)) * ((v_wind/v_wind_scale)**(-1.0/4.0)) * ((v_ej/v_ej_scale)**(2.0)) * ((nu/nu_scale)**(-0.5)) * ((t/10.0)**(0.5))
     return t_IC_ratio
+
+def t_ffa_optically_thin(t, m, v, nu):
+    """timescale for ejecta to become optically thin to FFA, from Lazda et al. 2026 eqn 7
+    Parameters:
+    t (float): temperature of the ejecta in K, scaled by 10^4 K
+    m (float): ejecta mass in solar masses, scaled by 2 solar masses
+    v (float): ejecta velocity in km/s, scaled by 300 km/s
+    nu (float): frequency in GHz
+    Returns:
+    t_ffa (float): timescale for ejecta to become optically thin to FFA in years
+    """
+    temp = (t/10**4)**(-3/10)
+    mass = (m/2)**(-1/5)
+    velocity = (v/300)**(-1)
+    frequency = (nu/10**9)**(-2/5)
+    t_ffa = 470 * temp * mass * velocity * frequency
+    return t_ffa
