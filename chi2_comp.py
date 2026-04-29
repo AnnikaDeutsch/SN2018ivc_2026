@@ -69,7 +69,9 @@ def main():
     parser.add_argument("--phase_lower", type=float, required=True)
     parser.add_argument("--phase_upper", type=float, required=True)
     parser.add_argument("--xmin", type=float, default=1.21)
-    parser.add_argument("--xmax", type=float, default=300.0)
+    parser.add_argument("--xmax", type=float, default=40.0)
+    parser.add_argument("--ymin", type=float, default=2.0)
+    parser.add_argument("--ymax", type=float, default=22.0)
 
     # --- component guesses (3 values each) ---
     parser.add_argument("--comp1_guess", type=float, nargs=3, required=True,
@@ -196,6 +198,7 @@ def main():
         ax.set_xscale('log')
         ax.set_yscale('log')
         ax.set_xlim(args.xmin, args.xmax)
+        ax.set_ylim(args.ymin, args.ymax)
         ax.set_xlabel('Frequency (GHz)')
         ax.set_ylabel('Flux Density (mJy)')
         ax.set_title(f"SED at {avg_phase:.1f} days")
