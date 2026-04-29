@@ -29,6 +29,29 @@ from astropy.table import Table
 from matplotlib import pyplot as plt
 import pandas as pd
 
+import seaborn as sns
+import matplotlib as mpl
+
+sns.set_theme(style="white", context="paper")
+
+mpl.rcParams.update({
+    "font.size": 14,
+    "axes.labelsize": 14,
+    "axes.titlesize": 14,
+    "legend.fontsize": 12,
+    "xtick.labelsize": 12,
+    "ytick.labelsize": 12,
+    "axes.linewidth": 1,
+    "xtick.direction": "in",
+    "ytick.direction": "in",
+    "xtick.bottom": True,
+    "xtick.top": True,
+    "ytick.left": True,
+    "ytick.right": True,
+})
+# colors
+blue = "#4C78A8"
+pink = "#F5859E"
 
 start_time = time.time()
 print(f"Script started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
@@ -81,9 +104,9 @@ def main():
     args = parser.parse_args()
 
     data = Table.read(args.datafile, format="csv")
-    comp1_guess = np.array(args.comp1_guess)
-    comp2_guess = np.array(args.comp2_guess)
-    comp3_guess = np.array(args.comp3_guess)
+    comp1_guess = args.comp1_guess
+    comp2_guess = args.comp2_guess
+    comp3_guess = args.comp3_guess
 
     # perform linear least squares fit for each model
     phase_lower = args.phase_lower
@@ -96,18 +119,18 @@ def main():
 
     fit_1comp, chi2_1comp = functions.one_comp_ls_fit(data, phase_lower, phase_upper, args.xmin, args.xmax,
                                                         comp1_guess, nup1last, offset=args.offset, amp_lower=args.amp_lower,
-                                                        plot=False, label1=args.label1, color1=args.color1)
+                                                        plot=False, label1=args.label1, color1=args.color1, chi2=True)
     
     fit_2comp, chi2_2comp = functions.two_comp_ls_fit(data, phase_lower, phase_upper, args.xmin, args.xmax,
                                                         comp1_guess, comp2_guess, nup1last, nup2last, offset=args.offset, 
                                                         amp_lower=args.amp_lower, plot=False, label1=args.label1, 
-                                                        label2=args.label2, color1=args.color1, color2=args.color2)
+                                                        label2=args.label2, color1=args.color1, color2=args.color2, chi2=True)
 
     fit_3comp, chi2_3comp = functions.three_comp_ls_fit(data, phase_lower, phase_upper, args.xmin, args.xmax,
                                                         comp1_guess, comp2_guess, comp3_guess, nup1last, nup2last,
                                                         nup3last, offset=args.offset, amp_lower=args.amp_lower, plot=False,
                                                         label1=args.label1, label2=args.label2, label3=args.label3, 
-                                                        color1=args.color1, color2=args.color2, color3=args.color3)
+                                                        color1=args.color1, color2=args.color2, color3=args.color3, chi2=True)
 
     # compare chi2 values of each fit, keep the one with the chi2 closest to 1
     fits = [fit_1comp, fit_2comp, fit_3comp]
@@ -132,46 +155,52 @@ def main():
         print("------------------")
     print("-------------------------------------------------------------")
 
-    df = pd.DataFram.from_dict(param_dict, orient='index', columns=['F_p (mJy)', 'nu_p (GHz)', 'p'])
-    df.to_csv(os.path.join(base_dir, f"best_fit_params_{avg_phase}_days.csv"))
+    df = pd.DataFrame.from_dict(param_dict, orient='index', columns=['F_p (mJy)', 'nu_p (GHz)', 'p'])
+    df.to_csv(os.path.join(base_dir, "model_params", f"best_fit_params_{avg_phase}_days.csv"))
 
     if args.plot:
+        data = data[((data['phase']>=phase_lower) & (data['phase']<=phase_upper))]
         # plot the data and the fit
         fig, ax = plt.subplots(dpi=300, figsize=(8,6))
         # plot data with error bars
         freq = data['freq']
         flux = data['flux']
-        ax.errorbar(freq, flux, yerr=data['flux_err'], fmt='o', label='Data', color='blue')
+        ax.errorbar(freq, flux, yerr=data['flux_err'], fmt='o', ms=7, capsize=2, elinewidth=1, color=blue, 
+                    mec='black', mew=0.5,label='Data')
         # plot best fit curve
         freq_range = np.logspace(np.log10(min(freq)*0.5), np.log10(max(freq)*1.5), 200)
         # plot depending on how many components should be plotted
         if closest_idx == 0:
             best_fit = functions.F_SSA_Nayana(freq_range, *best_fit_params)
-            ax.plot(freq_range, best_fit, label='Best Fit', color='red')
+            ax.plot(freq_range, best_fit, color=pink, lw=2.5, label='Best Fit')
+            comp1_curve = functions.F_SSA_Nayana(freq_range, best_fit_params[0], best_fit_params[1], best_fit_params[2])
+            ax.plot(freq_range, comp1_curve, label=args.label1, color=args.color1, linestyle='--', alpha=0.5, lw=1.8)
         elif closest_idx == 1:
             best_fit = functions.F_SSA_Nayana_2comp(freq_range, *best_fit_params)
-            ax.plot(freq_range, best_fit, label='Best Fit', color='red')
+            ax.plot(freq_range, best_fit, color=pink, lw=2.5, label='Best Fit')
             # plot component curves
             comp1_curve = functions.F_SSA_Nayana(freq_range, best_fit_params[0], best_fit_params[1], best_fit_params[2])
             comp2_curve = functions.F_SSA_Nayana(freq_range, best_fit_params[3], best_fit_params[4], best_fit_params[5])
-            ax.plot(freq_range, comp1_curve, label=args.label1, color=args.color1, linestyle='--')
-            ax.plot(freq_range, comp2_curve, label=args.label2, color=args.color2, linestyle='--')
+            ax.plot(freq_range, comp1_curve, label=args.label1, color=args.color1, linestyle='--', alpha=0.5, lw=1.8)
+            ax.plot(freq_range, comp2_curve, label=args.label2, color=args.color2, linestyle='--', alpha=0.5, lw=1.8)
         else:
             best_fit = functions.F_SSA_Nayana_3comp(freq_range, *best_fit_params)
-            ax.plot(freq_range, best_fit, label='Best Fit', color='red')
+            ax.plot(freq_range, best_fit, color=pink, lw=2.5, label='Best Fit')
             # plot component curves
             comp1_curve = functions.F_SSA_Nayana(freq_range, best_fit_params[0], best_fit_params[1], best_fit_params[2])
             comp2_curve = functions.F_SSA_Nayana(freq_range, best_fit_params[3], best_fit_params[4], best_fit_params[5])
             comp3_curve = functions.F_SSA_Nayana(freq_range, best_fit_params[6], best_fit_params[7], best_fit_params[8])
-            ax.plot(freq_range, comp1_curve, label=args.label1, color=args.color1, linestyle='--')
-            ax.plot(freq_range, comp2_curve, label=args.label2, color=args.color2, linestyle='--')
-            ax.plot(freq_range, comp3_curve, label=args.label3, color=args.color3, linestyle='--')
+            ax.plot(freq_range, comp1_curve, label=args.label1, color=args.color1, linestyle='--', alpha=0.5, lw=1.8)
+            ax.plot(freq_range, comp2_curve, label=args.label2, color=args.color2, linestyle='--', alpha=0.5, lw=1.8)
+            ax.plot(freq_range, comp3_curve, label=args.label3, color=args.color3, linestyle='--', alpha=0.5, lw=1.8)
         ax.set_xscale('log')
         ax.set_yscale('log')
         ax.set_xlim(args.xmin, args.xmax)
         ax.set_xlabel('Frequency (GHz)')
         ax.set_ylabel('Flux Density (mJy)')
-        ax.legend()   
+        ax.set_title(f"SED at {avg_phase:.1f} days")
+        ax.legend() 
+        fig.savefig(os.path.join(base_dir, "figures", f"best_fit_model_{avg_phase}_days.png"), bbox_inches='tight', dpi=300) 
 
 if __name__ == "__main__":
     main()
