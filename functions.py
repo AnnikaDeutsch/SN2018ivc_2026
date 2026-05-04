@@ -53,6 +53,15 @@ rcParams['axes.titlecolor'] = 'black'
 #cmap = LinearSegmentedColormap.from_list('custom_cmap', [coral, bora], N=256)
 cmap = "viridis"
 
+#---------------Helper Functions---------------#
+def insert_every_two(arr, val):
+    out = []
+    for i in range(0, len(arr), 2):
+        out.extend(arr[i:i+2])
+        if i + 1 < len(arr):  # only add if a pair exists
+            out.append(val[i//2])
+    return out
+
 
 #---------------Plotting Functions---------------#
 def get_viridis_hex(n):
@@ -541,7 +550,7 @@ def one_comp_ls_fit(data, phase_lower, phase_upper, xmin, xmax, comp1_guess, nu1
     nu1last: peak frequency of component 1 from previous epoch
     offset: frequency offset to allow for peak frequencies to shift down (default=0.0)
     amp_lower: lower bound on amplitude of each component (default=3.0 mJy)
-    fix_p: if not None, fix the spectral index to this value (default=None, i.e. free to vary)
+    fix_p (arr): if not None, fix the spectral index to this value (default=None, i.e. free to vary)
 
     Returns:
     parameters_epoch: best fit parameters for the epoch [F_p1, nu_p1, alpha1, F_p2, nu_p2, alpha2]
@@ -552,7 +561,7 @@ def one_comp_ls_fit(data, phase_lower, phase_upper, xmin, xmax, comp1_guess, nu1
 
     # provide good initial guesses
     if fix_p != None:
-        comp1_guess[2] = fix_p # make sure initial guess for p is the fixed value
+        comp1_guess = comp1_guess[:2]
     comp1 = comp1_guess # [F_p, nu_p, p]
     init_guess = comp1
 
@@ -560,16 +569,23 @@ def one_comp_ls_fit(data, phase_lower, phase_upper, xmin, xmax, comp1_guess, nu1
     offset = offset
     nu_p1_last = nu1last + offset
 
-    # use BOUNDS to enforce that peak never moves up in frequency
-    lower_bounds = [amp_lower, min(freq)*0.5, 2.0]
-    upper_bounds = [np.inf, nu_p1_last, 5.0]
-    bounds = (lower_bounds, upper_bounds) 
+    if fix_p != None:
+        # use BOUNDS to enforce that peak never moves up in frequency
+        lower_bounds = [amp_lower, min(freq)*0.5]
+        upper_bounds = [np.inf, nu_p1_last]
+        bounds = (lower_bounds, upper_bounds) 
+    else:
+        # use BOUNDS to enforce that peak never moves up in frequency
+        lower_bounds = [amp_lower, min(freq)*0.5, 2.0]
+        upper_bounds = [np.inf, nu_p1_last, 5.0]
+        bounds = (lower_bounds, upper_bounds) 
 
     # now use curvefit to perform the linear least squared fitting!
     if fix_p != None:
         def F_SSA_Nayana_fixed_p(nu, F_p, nu_p):
-            return F_SSA_Nayana(nu, F_p, nu_p, fix_p)
-        parameters_epoch, covariance = curve_fit(F_SSA_Nayana_fixed_p, freq, flux, p0=init_guess[:2], bounds=bounds[:2], sigma=data_epoch['flux_err'], absolute_sigma=True)
+            return F_SSA_Nayana(nu, F_p, nu_p, fix_p[0])
+        parameters_epoch, covariance = curve_fit(F_SSA_Nayana_fixed_p, freq, flux, p0=init_guess, bounds=bounds, sigma=data_epoch['flux_err'], absolute_sigma=True)
+        parameters_epoch = insert_every_two(parameters_epoch, fix_p)
     else:
         parameters_epoch, covariance = curve_fit(F_SSA_Nayana, freq, flux, p0=init_guess, bounds=bounds, sigma=data_epoch['flux_err'], absolute_sigma=True)
 
@@ -598,6 +614,8 @@ def one_comp_ls_fit(data, phase_lower, phase_upper, xmin, xmax, comp1_guess, nu1
         model = F_SSA_Nayana(freq, *parameters_epoch)
         chi2 = np.sum(((flux-model)/(data_epoch['flux_err']))**2)
         dof = len(freq) - len(parameters_epoch)
+        if fix_p != None:
+            dof += 1
         red_chi2 = chi2/dof
         print(f"Chi-squared: {chi2:.2f}, Reduced Chi-squared: {red_chi2:.2f}")
         return parameters_epoch, red_chi2
@@ -618,7 +636,7 @@ def two_comp_ls_fit(data, phase_lower, phase_upper, xmin, xmax, comp1_guess, com
     nu2last: peak frequency of component 2 from previous epoch
     offset: frequency offset to allow for peak frequencies to shift down (default=0.0)
     amp_lower: lower bound on amplitude of each component (default=3.0 mJy)
-    fix_p: if not None, fix the spectral index of both components to this value (default=None, i.e. free to vary)
+    fix_p (arr): if not None, fix the spectral index of each component to the specified value (default=None, i.e. free to vary)
 
     Returns:
     parameters_epoch: best fit parameters for the epoch [F_p1, nu_p1, alpha1, F_p2, nu_p2, alpha2]
@@ -653,8 +671,9 @@ def two_comp_ls_fit(data, phase_lower, phase_upper, xmin, xmax, comp1_guess, com
     # now use curvefit to perform the linear least squared fitting!
     if fix_p != None:
         def F_SSA_Nayana_fixed_p(nu, F_p1, nu_p1, F_p2, nu_p2):
-            return F_SSA_Nayana_2comp(nu, F_p1, nu_p1, fix_p, F_p2, nu_p2, fix_p)
+            return F_SSA_Nayana_2comp(nu, F_p1, nu_p1, fix_p[0], F_p2, nu_p2, fix_p[1])
         parameters_epoch, covariance = curve_fit(F_SSA_Nayana_fixed_p, freq, flux, p0=init_guess, bounds=bounds, sigma=data_epoch['flux_err'], absolute_sigma=True)
+        parameters_epoch = insert_every_two(parameters_epoch, fix_p)
     else:
         parameters_epoch, covariance = curve_fit(F_SSA_Nayana_2comp, freq, flux, p0=init_guess, bounds=bounds, sigma=data_epoch['flux_err'], absolute_sigma=True)
 
@@ -685,6 +704,8 @@ def two_comp_ls_fit(data, phase_lower, phase_upper, xmin, xmax, comp1_guess, com
         model = F_SSA_Nayana_2comp(freq, *parameters_epoch)
         chi2 = np.sum(((flux-model)/(data_epoch['flux_err']))**2)
         dof = len(freq) - len(parameters_epoch)
+        if fix_p != None:
+            dof += 2
         red_chi2 = chi2/dof
         print(f"Chi-squared: {chi2:.2f}, Reduced Chi-squared: {red_chi2:.2f}")
         return parameters_epoch, red_chi2
@@ -717,7 +738,7 @@ def three_comp_ls_fit(data, phase_lower, phase_upper, xmin, xmax, comp1_guess, c
     color2: color for component 2 in the plot (default='green')
     color3: color for component 3 in the plot (default='purple')
     chi2: whether to calculate and print chi-squared and reduced chi-squared (default=False)
-    fix_p: if not None, fix the spectral index of all components to this value (default=None, i.e. free to vary)
+    fix_p (arr): if not None, fix the spectral index of all components to this value (default=None, i.e. free to vary)
 
     Returns:
     parameters_epoch: best fit parameters for the epoch [F_p1, nu_p1, alpha1, F_p2, nu_p2, alpha2]
@@ -756,8 +777,9 @@ def three_comp_ls_fit(data, phase_lower, phase_upper, xmin, xmax, comp1_guess, c
     # now use curvefit to perform the linear least squared fitting!
     if fix_p != None:
         def F_SSA_Nayana_fixed_p(nu, F_p1, nu_p1, F_p2, nu_p2, F_p3, nu_p3):
-            return F_SSA_Nayana_3comp(nu, F_p1, nu_p1, fix_p, F_p2, nu_p2, fix_p, F_p3, nu_p3, fix_p)
+            return F_SSA_Nayana_3comp(nu, F_p1, nu_p1, fix_p[0], F_p2, nu_p2, fix_p[1], F_p3, nu_p3, fix_p[2])
         parameters_epoch, covariance = curve_fit(F_SSA_Nayana_fixed_p, freq, flux, p0=init_guess, bounds=bounds, sigma=data_epoch['flux_err'], absolute_sigma=True)
+        parameters_epoch = insert_every_two(parameters_epoch, fix_p)
     else:
         parameters_epoch, covariance = curve_fit(F_SSA_Nayana_3comp, freq, flux, p0=init_guess, bounds=bounds, sigma=data_epoch['flux_err'], absolute_sigma=True)
 
@@ -790,6 +812,8 @@ def three_comp_ls_fit(data, phase_lower, phase_upper, xmin, xmax, comp1_guess, c
         model = F_SSA_Nayana_3comp(freq, *parameters_epoch)
         chi2 = np.sum(((flux-model)/(data_epoch['flux_err']))**2)
         dof = len(freq) - len(parameters_epoch)
+        if fix_p != None:
+            dof += 1
         red_chi2 = chi2/dof
         print(f"Chi-squared: {chi2:.2f}, Reduced Chi-squared: {red_chi2:.2f}")
         return parameters_epoch, red_chi2
