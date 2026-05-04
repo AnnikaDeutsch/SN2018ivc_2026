@@ -75,11 +75,11 @@ def main():
 
     # --- component guesses (3 values each) ---
     parser.add_argument("--comp1_guess", type=float, nargs=3, required=True,
-                        metavar=("F_p1", "nu_p1", "alpha1"))
+                        metavar=("F_p1", "nu_p1", "p1"))
     parser.add_argument("--comp2_guess", type=float, nargs=3, required=True,
-                        metavar=("F_p2", "nu_p2", "alpha2"))
+                        metavar=("F_p2", "nu_p2", "p2"))
     parser.add_argument("--comp3_guess", type=float, nargs=3, required=True,
-                        metavar=("F_p3", "nu_p3", "alpha3"))
+                        metavar=("F_p3", "nu_p3", "p3"))
 
     # --- previous peak frequencies ---
     parser.add_argument("--nu1last", type=float, required=True)
@@ -89,6 +89,7 @@ def main():
     # --- optional parameters ---
     parser.add_argument("--offset", type=float, default=0.0)
     parser.add_argument("--amp_lower", type=float, default=3.0)
+    parser.add_argument("--fix_p", action="store_true", help="Fix the p to the value specified in the component guess.")
 
     # --- plotting options ---
     parser.add_argument("--plot", action="store_true", help="Plot the data with the best fit model.")
@@ -119,20 +120,41 @@ def main():
     nup2last = args.nu2last
     nup3last = args.nu3last
 
-    fit_1comp, chi2_1comp = functions.one_comp_ls_fit(data, phase_lower, phase_upper, args.xmin, args.xmax,
-                                                        comp1_guess, nup1last, offset=args.offset, amp_lower=args.amp_lower,
-                                                        plot=False, label1=args.label1, color1=args.color1, chi2=True)
-    
-    fit_2comp, chi2_2comp = functions.two_comp_ls_fit(data, phase_lower, phase_upper, args.xmin, args.xmax,
-                                                        comp1_guess, comp2_guess, nup1last, nup2last, offset=args.offset, 
-                                                        amp_lower=args.amp_lower, plot=False, label1=args.label1, 
-                                                        label2=args.label2, color1=args.color1, color2=args.color2, chi2=True)
+    if args.fix_p:
+        fixed_p1 = comp1_guess[2]
+        fixed_p2 = comp2_guess[2]
+        fixed_p3 = comp3_guess[2]
+        fixed_p = [fixed_p1, fixed_p2, fixed_p3]
 
-    fit_3comp, chi2_3comp = functions.three_comp_ls_fit(data, phase_lower, phase_upper, args.xmin, args.xmax,
-                                                        comp1_guess, comp2_guess, comp3_guess, nup1last, nup2last,
-                                                        nup3last, offset=args.offset, amp_lower=args.amp_lower, plot=False,
-                                                        label1=args.label1, label2=args.label2, label3=args.label3, 
-                                                        color1=args.color1, color2=args.color2, color3=args.color3, chi2=True)
+        fit_1comp, chi2_1comp = functions.one_comp_ls_fit(data, phase_lower, phase_upper, args.xmin, args.xmax,
+                                                            comp1_guess, nup1last, offset=args.offset, amp_lower=args.amp_lower,
+                                                            plot=False, label1=args.label1, color1=args.color1, chi2=True, fix_p=fixed_p[:1])
+        
+        fit_2comp, chi2_2comp = functions.two_comp_ls_fit(data, phase_lower, phase_upper, args.xmin, args.xmax,
+                                                            comp1_guess, comp2_guess, nup1last, nup2last, offset=args.offset, 
+                                                            amp_lower=args.amp_lower, plot=False, label1=args.label1, 
+                                                            label2=args.label2, color1=args.color1, color2=args.color2, chi2=True, fix_p=fixed_p[:2])
+
+        fit_3comp, chi2_3comp = functions.three_comp_ls_fit(data, phase_lower, phase_upper, args.xmin, args.xmax,
+                                                            comp1_guess, comp2_guess, comp3_guess, nup1last, nup2last,
+                                                            nup3last, offset=args.offset, amp_lower=args.amp_lower, plot=False,
+                                                            label1=args.label1, label2=args.label2, label3=args.label3, 
+                                                            color1=args.color1, color2=args.color2, color3=args.color3, chi2=True, fix_p=fixed_p)
+    else:
+        fit_1comp, chi2_1comp = functions.one_comp_ls_fit(data, phase_lower, phase_upper, args.xmin, args.xmax,
+                                                            comp1_guess, nup1last, offset=args.offset, amp_lower=args.amp_lower,
+                                                            plot=False, label1=args.label1, color1=args.color1, chi2=True)
+        
+        fit_2comp, chi2_2comp = functions.two_comp_ls_fit(data, phase_lower, phase_upper, args.xmin, args.xmax,
+                                                            comp1_guess, comp2_guess, nup1last, nup2last, offset=args.offset, 
+                                                            amp_lower=args.amp_lower, plot=False, label1=args.label1, 
+                                                            label2=args.label2, color1=args.color1, color2=args.color2, chi2=True)
+
+        fit_3comp, chi2_3comp = functions.three_comp_ls_fit(data, phase_lower, phase_upper, args.xmin, args.xmax,
+                                                            comp1_guess, comp2_guess, comp3_guess, nup1last, nup2last,
+                                                            nup3last, offset=args.offset, amp_lower=args.amp_lower, plot=False,
+                                                            label1=args.label1, label2=args.label2, label3=args.label3, 
+                                                            color1=args.color1, color2=args.color2, color3=args.color3, chi2=True)
 
     # compare chi2 values of each fit, keep the one with the chi2 closest to 1
     fits = [fit_1comp, fit_2comp, fit_3comp]
