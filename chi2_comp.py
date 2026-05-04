@@ -158,6 +158,7 @@ def main():
     print("-------------------------------------------------------------")
 
     df = pd.DataFrame.from_dict(param_dict, orient='index', columns=['F_p (mJy)', 'nu_p (GHz)', 'p'])
+    df['alpha'] = (df['p'] - 1) / 2
     df.to_csv(os.path.join(base_dir, "model_params", f"best_fit_params_{avg_phase}_days.csv"))
 
     if args.plot:
