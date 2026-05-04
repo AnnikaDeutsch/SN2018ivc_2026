@@ -560,19 +560,18 @@ def one_comp_ls_fit(data, phase_lower, phase_upper, xmin, xmax, comp1_guess, nu1
     offset = offset
     nu_p1_last = nu1last + offset
 
-    if fix_p != None:
-        # use BOUNDS to enforce that peak never moves up in frequency + fix spectral index to a specific value
-        lower_bounds = [amp_lower, min(freq)*0.5, fix_p]
-        upper_bounds = [np.inf, nu_p1_last, 5.0, fix_p]
-        bounds = (lower_bounds, upper_bounds)
-    else:
-        # use BOUNDS to enforce that peak never moves up in frequency
-        lower_bounds = [amp_lower, min(freq)*0.5, 2.0]
-        upper_bounds = [np.inf, nu_p1_last, 5.0]
-        bounds = (lower_bounds, upper_bounds)  
+    # use BOUNDS to enforce that peak never moves up in frequency
+    lower_bounds = [amp_lower, min(freq)*0.5, 2.0]
+    upper_bounds = [np.inf, nu_p1_last, 5.0]
+    bounds = (lower_bounds, upper_bounds) 
 
     # now use curvefit to perform the linear least squared fitting!
-    parameters_epoch, covariance = curve_fit(F_SSA_Nayana, freq, flux, p0=init_guess, bounds=bounds, sigma=data_epoch['flux_err'], absolute_sigma=True)
+    if fix_p != None:
+        def F_SSA_Nayana_fixed_p(nu, F_p, nu_p):
+            return F_SSA_Nayana(nu, F_p, nu_p, fix_p)
+        parameters_epoch, covariance = curve_fit(F_SSA_Nayana_fixed_p, freq, flux, p0=init_guess[:2], bounds=bounds[:2], sigma=data_epoch['flux_err'], absolute_sigma=True)
+    else:
+        parameters_epoch, covariance = curve_fit(F_SSA_Nayana, freq, flux, p0=init_guess, bounds=bounds, sigma=data_epoch['flux_err'], absolute_sigma=True)
 
     if plot:
         # plot the data and the fit
@@ -630,10 +629,10 @@ def two_comp_ls_fit(data, phase_lower, phase_upper, xmin, xmax, comp1_guess, com
 
     # provide good initial guesses
     if fix_p != None:
-        comp1_guess[2] = fix_p
-        comp2_guess[2] = fix_p
-    comp1 = comp1_guess # [F_p, nu_p, p]
-    comp2 = comp2_guess # [F_p, nu_p, p]
+        comp1_guess = comp1_guess[:2]
+        comp2_guess = comp2_guess[:2]
+    comp1 = comp1_guess 
+    comp2 = comp2_guess 
     init_guess = comp1 + comp2
 
     # define peak frequencies of previous epoch
@@ -642,9 +641,8 @@ def two_comp_ls_fit(data, phase_lower, phase_upper, xmin, xmax, comp1_guess, com
     nu_p2_last = nu2last + offset
 
     if fix_p != None:
-        # use BOUNDS to enforce that components don't swap/ever move up in frequency
-        lower_bounds = [amp_lower, min(freq)*0.5, fix_p] * 2
-        upper_bounds = [np.inf, nu_p1_last, fix_p] + [np.inf, nu_p2_last, fix_p]
+        lower_bounds = [amp_lower, min(freq)*0.5] * 2
+        upper_bounds = [np.inf, nu_p1_last] + [np.inf, nu_p2_last]
         bounds = (lower_bounds, upper_bounds)
     else:
         # use BOUNDS to enforce that components don't swap/ever move up in frequency
@@ -653,7 +651,12 @@ def two_comp_ls_fit(data, phase_lower, phase_upper, xmin, xmax, comp1_guess, com
         bounds = (lower_bounds, upper_bounds)
 
     # now use curvefit to perform the linear least squared fitting!
-    parameters_epoch, covariance = curve_fit(F_SSA_Nayana_2comp, freq, flux, p0=init_guess, bounds=bounds, sigma=data_epoch['flux_err'], absolute_sigma=True)
+    if fix_p != None:
+        def F_SSA_Nayana_fixed_p(nu, F_p1, nu_p1, F_p2, nu_p2):
+            return F_SSA_Nayana_2comp(nu, F_p1, nu_p1, fix_p, F_p2, nu_p2, fix_p)
+        parameters_epoch, covariance = curve_fit(F_SSA_Nayana_fixed_p, freq, flux, p0=init_guess, bounds=bounds, sigma=data_epoch['flux_err'], absolute_sigma=True)
+    else:
+        parameters_epoch, covariance = curve_fit(F_SSA_Nayana_2comp, freq, flux, p0=init_guess, bounds=bounds, sigma=data_epoch['flux_err'], absolute_sigma=True)
 
     if plot:
         # plot the data and the fit
@@ -725,12 +728,12 @@ def three_comp_ls_fit(data, phase_lower, phase_upper, xmin, xmax, comp1_guess, c
 
     # provide good initial guesses
     if fix_p != None:
-        comp1_guess[2] = fix_p
-        comp2_guess[2] = fix_p
-        comp3_guess[2] = fix_p
-    comp1 = comp1_guess # [F_p, nu_p, alpha]
-    comp2 = comp2_guess # [F_p, nu_p, alpha]
-    comp3 = comp3_guess # [F_p, nu_p, alpha]
+        comp1_guess = comp1_guess[:2]
+        comp2_guess = comp2_guess[:2]
+        comp3_guess = comp3_guess[:2]
+    comp1 = comp1_guess 
+    comp2 = comp2_guess 
+    comp3 = comp3_guess 
     init_guess = comp1 + comp2 + comp3
 
     # define peak frequencies of previous epoch
@@ -740,9 +743,9 @@ def three_comp_ls_fit(data, phase_lower, phase_upper, xmin, xmax, comp1_guess, c
     nu_p3_last = nu3last + offset
 
     if fix_p != None:
-    # use BOUNDS to enforce that components don't swap/ever move up in frequency
-        lower_bounds = [amp_lower, min(freq)*0.5, fix_p] * 3
-        upper_bounds = [np.inf, nu_p1_last, fix_p] + [np.inf, nu_p2_last, fix_p] + [np.inf, nu_p3_last, fix_p]
+        # use BOUNDS to enforce that components don't swap/ever move up in frequency
+        lower_bounds = [amp_lower, min(freq)*0.5] * 3
+        upper_bounds = [np.inf, nu_p1_last] + [np.inf, nu_p2_last] + [np.inf, nu_p3_last]
         bounds = (lower_bounds, upper_bounds)
     else:
         # use BOUNDS to enforce that components don't swap/ever move up in frequency
@@ -751,7 +754,12 @@ def three_comp_ls_fit(data, phase_lower, phase_upper, xmin, xmax, comp1_guess, c
         bounds = (lower_bounds, upper_bounds)
 
     # now use curvefit to perform the linear least squared fitting!
-    parameters_epoch, covariance = curve_fit(F_SSA_Nayana_3comp, freq, flux, p0=init_guess, bounds=bounds, sigma=data_epoch['flux_err'], absolute_sigma=True)
+    if fix_p != None:
+        def F_SSA_Nayana_fixed_p(nu, F_p1, nu_p1, F_p2, nu_p2, F_p3, nu_p3):
+            return F_SSA_Nayana_3comp(nu, F_p1, nu_p1, fix_p, F_p2, nu_p2, fix_p, F_p3, nu_p3, fix_p)
+        parameters_epoch, covariance = curve_fit(F_SSA_Nayana_fixed_p, freq, flux, p0=init_guess, bounds=bounds, sigma=data_epoch['flux_err'], absolute_sigma=True)
+    else:
+        parameters_epoch, covariance = curve_fit(F_SSA_Nayana_3comp, freq, flux, p0=init_guess, bounds=bounds, sigma=data_epoch['flux_err'], absolute_sigma=True)
 
     if plot:
         # plot the data and the fit
