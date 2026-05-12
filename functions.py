@@ -559,33 +559,31 @@ def one_comp_ls_fit(data, phase_lower, phase_upper, xmin, xmax, comp1_guess, nu1
     freq = data_epoch['freq']
     flux = data_epoch['flux']
 
+    p1_fixed = fix_p[0] if fix_p is not None else None
+
     # provide good initial guesses
-    if fix_p != None:
-        comp1_guess = comp1_guess[:2]
-    comp1 = comp1_guess # [F_p, nu_p, p]
-    init_guess = comp1
+    comp1_g = list(comp1_guess[:2]) if p1_fixed is not None else list(comp1_guess)
+    init_guess = comp1_g
 
     # define peak frequencies of previous epoch
     offset = offset
     nu_p1_last = nu1last + offset
 
-    if fix_p != None:
-        # use BOUNDS to enforce that peak never moves up in frequency
+    # use BOUNDS to enforce that peak never moves up in frequency
+    if p1_fixed is not None:
         lower_bounds = [amp_lower, min(freq)*0.5]
         upper_bounds = [np.inf, nu_p1_last]
-        bounds = (lower_bounds, upper_bounds) 
     else:
-        # use BOUNDS to enforce that peak never moves up in frequency
         lower_bounds = [amp_lower, min(freq)*0.5, 2.0]
         upper_bounds = [np.inf, nu_p1_last, 5.0]
-        bounds = (lower_bounds, upper_bounds) 
+    bounds = (lower_bounds, upper_bounds)
 
     # now use curvefit to perform the linear least squared fitting!
-    if fix_p != None:
-        def F_SSA_Nayana_fixed_p(nu, F_p, nu_p):
-            return F_SSA_Nayana(nu, F_p, nu_p, fix_p[0])
-        parameters_epoch, covariance = curve_fit(F_SSA_Nayana_fixed_p, freq, flux, p0=init_guess, bounds=bounds, sigma=data_epoch['flux_err'], absolute_sigma=True)
-        parameters_epoch = insert_every_two(parameters_epoch, fix_p)
+    if p1_fixed is not None:
+        def _model(nu, F_p, nu_p):
+            return F_SSA_Nayana(nu, F_p, nu_p, p1_fixed)
+        raw, covariance = curve_fit(_model, freq, flux, p0=init_guess, bounds=bounds, sigma=data_epoch['flux_err'], absolute_sigma=True)
+        parameters_epoch = np.array([raw[0], raw[1], p1_fixed])
     else:
         parameters_epoch, covariance = curve_fit(F_SSA_Nayana, freq, flux, p0=init_guess, bounds=bounds, sigma=data_epoch['flux_err'], absolute_sigma=True)
 
@@ -613,9 +611,7 @@ def one_comp_ls_fit(data, phase_lower, phase_upper, xmin, xmax, comp1_guess, nu1
     if chi2:
         model = F_SSA_Nayana(freq, *parameters_epoch)
         chi2 = np.sum(((flux-model)/(data_epoch['flux_err']))**2)
-        dof = len(freq) - len(parameters_epoch)
-        if fix_p != None:
-            dof += 1
+        dof = len(freq) - len(init_guess)
         red_chi2 = chi2/dof
         print(f"Chi-squared: {chi2:.2f}, Reduced Chi-squared: {red_chi2:.2f}")
         return parameters_epoch, red_chi2
@@ -645,35 +641,54 @@ def two_comp_ls_fit(data, phase_lower, phase_upper, xmin, xmax, comp1_guess, com
     freq = data_epoch['freq']
     flux = data_epoch['flux']
 
+    if fix_p is None:
+        fix_p = [None, None]
+    p1_fixed, p2_fixed = fix_p[0], fix_p[1]
+
     # provide good initial guesses
-    if fix_p != None:
-        comp1_guess = comp1_guess[:2]
-        comp2_guess = comp2_guess[:2]
-    comp1 = comp1_guess 
-    comp2 = comp2_guess 
-    init_guess = comp1 + comp2
+    comp1_g = list(comp1_guess[:2]) if p1_fixed is not None else list(comp1_guess)
+    comp2_g = list(comp2_guess[:2]) if p2_fixed is not None else list(comp2_guess)
+    init_guess = comp1_g + comp2_g
 
     # define peak frequencies of previous epoch
     offset = offset
     nu_p1_last = nu1last + offset
     nu_p2_last = nu2last + offset
 
-    if fix_p != None:
-        lower_bounds = [amp_lower, min(freq)*0.5] * 2
-        upper_bounds = [np.inf, nu_p1_last] + [np.inf, nu_p2_last]
-        bounds = (lower_bounds, upper_bounds)
-    else:
-        # use BOUNDS to enforce that components don't swap/ever move up in frequency
-        lower_bounds = [amp_lower, min(freq)*0.5, 2.0] * 2
-        upper_bounds = [np.inf, nu_p1_last, 5.0] + [np.inf, nu_p2_last, 5.0]
-        bounds = (lower_bounds, upper_bounds)
+    # use BOUNDS to enforce that components don't swap/ever move up in frequency
+    lower_bounds = (
+        ([amp_lower, min(freq)*0.5] if p1_fixed is not None else [amp_lower, min(freq)*0.5, 2.0]) +
+        ([amp_lower, min(freq)*0.5] if p2_fixed is not None else [amp_lower, min(freq)*0.5, 2.0])
+    )
+    upper_bounds = (
+        ([np.inf, nu_p1_last] if p1_fixed is not None else [np.inf, nu_p1_last, 5.0]) +
+        ([np.inf, nu_p2_last] if p2_fixed is not None else [np.inf, nu_p2_last, 5.0])
+    )
+    bounds = (lower_bounds, upper_bounds)
 
     # now use curvefit to perform the linear least squared fitting!
-    if fix_p != None:
-        def F_SSA_Nayana_fixed_p(nu, F_p1, nu_p1, F_p2, nu_p2):
-            return F_SSA_Nayana_2comp(nu, F_p1, nu_p1, fix_p[0], F_p2, nu_p2, fix_p[1])
-        parameters_epoch, covariance = curve_fit(F_SSA_Nayana_fixed_p, freq, flux, p0=init_guess, bounds=bounds, sigma=data_epoch['flux_err'], absolute_sigma=True)
-        parameters_epoch = insert_every_two(parameters_epoch, fix_p)
+    if p1_fixed is not None or p2_fixed is not None:
+        _fp = [p1_fixed, p2_fixed]
+        def _model(nu, *free_params):
+            full, fi = [], 0
+            for pf in _fp:
+                full.append(free_params[fi]); fi += 1
+                full.append(free_params[fi]); fi += 1
+                if pf is None:
+                    full.append(free_params[fi]); fi += 1
+                else:
+                    full.append(pf)
+            return F_SSA_Nayana_2comp(nu, *full)
+        raw, covariance = curve_fit(_model, freq, flux, p0=init_guess, bounds=bounds, sigma=data_epoch['flux_err'], absolute_sigma=True)
+        full_params, fi = [], 0
+        for pf in [p1_fixed, p2_fixed]:
+            full_params.append(raw[fi]); fi += 1
+            full_params.append(raw[fi]); fi += 1
+            if pf is None:
+                full_params.append(raw[fi]); fi += 1
+            else:
+                full_params.append(pf)
+        parameters_epoch = np.array(full_params)
     else:
         parameters_epoch, covariance = curve_fit(F_SSA_Nayana_2comp, freq, flux, p0=init_guess, bounds=bounds, sigma=data_epoch['flux_err'], absolute_sigma=True)
 
@@ -703,9 +718,7 @@ def two_comp_ls_fit(data, phase_lower, phase_upper, xmin, xmax, comp1_guess, com
     if chi2:
         model = F_SSA_Nayana_2comp(freq, *parameters_epoch)
         chi2 = np.sum(((flux-model)/(data_epoch['flux_err']))**2)
-        dof = len(freq) - len(parameters_epoch)
-        if fix_p != None:
-            dof += 2
+        dof = len(freq) - len(init_guess)
         red_chi2 = chi2/dof
         print(f"Chi-squared: {chi2:.2f}, Reduced Chi-squared: {red_chi2:.2f}")
         return parameters_epoch, red_chi2
@@ -747,15 +760,15 @@ def three_comp_ls_fit(data, phase_lower, phase_upper, xmin, xmax, comp1_guess, c
     freq = data_epoch['freq']
     flux = data_epoch['flux']
 
+    if fix_p is None:
+        fix_p = [None, None, None]
+    p1_fixed, p2_fixed, p3_fixed = fix_p[0], fix_p[1], fix_p[2]
+
     # provide good initial guesses
-    if fix_p != None:
-        comp1_guess = comp1_guess[:2]
-        comp2_guess = comp2_guess[:2]
-        comp3_guess = comp3_guess[:2]
-    comp1 = comp1_guess 
-    comp2 = comp2_guess 
-    comp3 = comp3_guess 
-    init_guess = comp1 + comp2 + comp3
+    comp1_g = list(comp1_guess[:2]) if p1_fixed is not None else list(comp1_guess)
+    comp2_g = list(comp2_guess[:2]) if p2_fixed is not None else list(comp2_guess)
+    comp3_g = list(comp3_guess[:2]) if p3_fixed is not None else list(comp3_guess)
+    init_guess = comp1_g + comp2_g + comp3_g
 
     # define peak frequencies of previous epoch
     offset = offset
@@ -763,23 +776,42 @@ def three_comp_ls_fit(data, phase_lower, phase_upper, xmin, xmax, comp1_guess, c
     nu_p2_last = nu2last + offset
     nu_p3_last = nu3last + offset
 
-    if fix_p != None:
-        # use BOUNDS to enforce that components don't swap/ever move up in frequency
-        lower_bounds = [amp_lower, min(freq)*0.5] * 3
-        upper_bounds = [np.inf, nu_p1_last] + [np.inf, nu_p2_last] + [np.inf, nu_p3_last]
-        bounds = (lower_bounds, upper_bounds)
-    else:
-        # use BOUNDS to enforce that components don't swap/ever move up in frequency
-        lower_bounds = [amp_lower, min(freq)*0.5, 2.0] * 3
-        upper_bounds = [np.inf, nu_p1_last, 5.0] + [np.inf, nu_p2_last, 5.0] + [np.inf, nu_p3_last, 5.0]
-        bounds = (lower_bounds, upper_bounds)
+    # use BOUNDS to enforce that components don't swap/ever move up in frequency
+    lower_bounds = (
+        ([amp_lower, min(freq)*0.5] if p1_fixed is not None else [amp_lower, min(freq)*0.5, 2.0]) +
+        ([amp_lower, min(freq)*0.5] if p2_fixed is not None else [amp_lower, min(freq)*0.5, 2.0]) +
+        ([amp_lower, min(freq)*0.5] if p3_fixed is not None else [amp_lower, min(freq)*0.5, 2.0])
+    )
+    upper_bounds = (
+        ([np.inf, nu_p1_last] if p1_fixed is not None else [np.inf, nu_p1_last, 5.0]) +
+        ([np.inf, nu_p2_last] if p2_fixed is not None else [np.inf, nu_p2_last, 5.0]) +
+        ([np.inf, nu_p3_last] if p3_fixed is not None else [np.inf, nu_p3_last, 5.0])
+    )
+    bounds = (lower_bounds, upper_bounds)
 
     # now use curvefit to perform the linear least squared fitting!
-    if fix_p != None:
-        def F_SSA_Nayana_fixed_p(nu, F_p1, nu_p1, F_p2, nu_p2, F_p3, nu_p3):
-            return F_SSA_Nayana_3comp(nu, F_p1, nu_p1, fix_p[0], F_p2, nu_p2, fix_p[1], F_p3, nu_p3, fix_p[2])
-        parameters_epoch, covariance = curve_fit(F_SSA_Nayana_fixed_p, freq, flux, p0=init_guess, bounds=bounds, sigma=data_epoch['flux_err'], absolute_sigma=True)
-        parameters_epoch = insert_every_two(parameters_epoch, fix_p)
+    if p1_fixed is not None or p2_fixed is not None or p3_fixed is not None:
+        _fp = [p1_fixed, p2_fixed, p3_fixed]
+        def _model(nu, *free_params):
+            full, fi = [], 0
+            for pf in _fp:
+                full.append(free_params[fi]); fi += 1
+                full.append(free_params[fi]); fi += 1
+                if pf is None:
+                    full.append(free_params[fi]); fi += 1
+                else:
+                    full.append(pf)
+            return F_SSA_Nayana_3comp(nu, *full)
+        raw, covariance = curve_fit(_model, freq, flux, p0=init_guess, bounds=bounds, sigma=data_epoch['flux_err'], absolute_sigma=True)
+        full_params, fi = [], 0
+        for pf in [p1_fixed, p2_fixed, p3_fixed]:
+            full_params.append(raw[fi]); fi += 1
+            full_params.append(raw[fi]); fi += 1
+            if pf is None:
+                full_params.append(raw[fi]); fi += 1
+            else:
+                full_params.append(pf)
+        parameters_epoch = np.array(full_params)
     else:
         parameters_epoch, covariance = curve_fit(F_SSA_Nayana_3comp, freq, flux, p0=init_guess, bounds=bounds, sigma=data_epoch['flux_err'], absolute_sigma=True)
 
@@ -811,9 +843,7 @@ def three_comp_ls_fit(data, phase_lower, phase_upper, xmin, xmax, comp1_guess, c
     if chi2:
         model = F_SSA_Nayana_3comp(freq, *parameters_epoch)
         chi2 = np.sum(((flux-model)/(data_epoch['flux_err']))**2)
-        dof = len(freq) - len(parameters_epoch)
-        if fix_p != None:
-            dof += 1
+        dof = len(freq) - len(init_guess)
         red_chi2 = chi2/dof
         print(f"Chi-squared: {chi2:.2f}, Reduced Chi-squared: {red_chi2:.2f}")
         return parameters_epoch, red_chi2
