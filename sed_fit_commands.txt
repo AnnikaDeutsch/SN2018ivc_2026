@@ -12,11 +12,11 @@
     "Component 3" --color1 "green" --color2 "purple"  --plot --fix_p data/radio_18ivc_data.csv
 
 2400 day epoch:
-    python chi2_comp.py --phase_lower 2400 --phase_upper 2600 --comp1_guess 15.0 3.0 3.24 --comp2_guess 4.0 9.0 3.24 \
-    --comp3_guess 1.0 34.85 3.24 --nu1last 4.25 --nu2last 21.08 --nu3last 40.0 --amp_lower 1.0 --label1 "Component 2" \
-    --label2 "Component 3" --color1 "green" --color2 "purple" --plot --fix_p data/radio_18ivc_data.csv
+    python chi2_comp.py --phase_lower 2400 --phase_upper 2600 --comp1_guess 15.0 3.0 1.8 --comp2_guess 4.0 9.0 1.8 \
+    --comp3_guess 1.0 34.85 1.8 --nu1last 4.25 --nu2last 21.08 --nu3last 40.0 --amp_lower 1.0 --label1 "Component 2" \
+    --label2 "Component 3" --color1 "green" --color2 "purple" --plot --fix_p1 --fix_p2 data/radio_18ivc_data.csv
 
 2700 day epoch:
-    python chi2_comp.py --phase_lower 2600 --phase_upper 2700 --comp1_guess 18.0 3.0 3.24 --comp2_guess 4.39 7.5 3.24 \
-    --comp3_guess 1.0 34.85 3.24 --nu1last 3.46 --nu2last 11.49 --nu3last 40.0 --amp_lower 1.0 --label1 "Component 2" \
-    --label2 "Component 3" --color1 "green" --color2 "purple" --plot --fix_p data/radio_18ivc_data.csv
+    python chi2_comp.py --phase_lower 2600 --phase_upper 2700 --comp1_guess 18.0 3.0 1.8 --comp2_guess 4.39 7.5 1.8 \
+    --comp3_guess 1.0 34.85 1.8 --nu1last 3.46 --nu2last 11.49 --nu3last 40.0 --amp_lower 1.0 --label1 "Component 2" \
+    --label2 "Component 3" --color1 "green" --color2 "purple" --plot --fix_p1 --fix_p2 data/radio_18ivc_data.csv

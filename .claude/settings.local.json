@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c ' *)",
+      "Bash(python3 -c \"import jupyter\")",
+      "Bash(jupyter nbconvert *)",
+      "Bash(python3 *)",
+      "Bash(/opt/anaconda3/envs/18ivc_clean/bin/python *)",
+      "Bash(mkdir -p /private/tmp/claude-502/-Users-adeutsch-SN2018ivc-2026/fbf132fa-7029-49d5-87b9-04e516d70476/scratchpad)",
+      "Bash(cd *)",
+      "Bash(JUPYTER_PATH=/opt/anaconda3/envs/18ivc_clean/share/jupyter JUPYTER_CONFIG_DIR=/opt/anaconda3/envs/18ivc_clean/etc/jupyter /opt/anaconda3/envs/18ivc_clean/bin/jupyter nbconvert --to notebook --execute --inplace figure_notebooks/full_radio_lightcurve.ipynb)",
+      "Bash(/opt/anaconda3/envs/18ivc/bin/python -c \"import pandas\")",
+      "Bash(/opt/anaconda3/envs/18ivc/bin/python -c \"import numpy\")"
+    ]
+  }
+}
