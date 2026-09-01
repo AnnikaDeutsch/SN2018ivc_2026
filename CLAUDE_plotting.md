@@ -145,34 +145,64 @@ colors = [cmap(x) for x in np.linspace(1, 0, len(epoch_info))]
 **The full range spans as early as ~4 days post-explosion (the earliest data in
 `data/radio_18ivc_data.csv`) through ~2650+ days — not just the late-time epochs.**
 The youngest epoch in the full list is what gets `x=1.00` (yellow), regardless of
-which epochs happen to be included in any one figure.
+which epochs happen to be included in any one figure. **As of 2026-09-01 this list
+is shared across wavelengths, not just radio** — the 3 X-ray epochs (see
+`CLAUDE_xray_SOP.md`) are interleaved into the same chronological list on the same
+color axis, not a separate mapping.
 
-Canonical epoch list (`figure_notebooks/sed_epoch_grid.ipynb`), `x = linspace(1, 0, 8)`:
+Canonical epoch list, `x = linspace(1, 0, 11)` (radio epochs originally tracked in
+`figure_notebooks/sed_epoch_grid.ipynb`; X-ray epochs added 2026-09-01):
 
 | epoch (days) | phase range | x (viridis position) | source |
 |---|---|---|---|
 | 4.0 | 0–10 | 1.000 | raw data (no model fit yet) |
-| 20.0 | 10–30 | 0.857 | raw data (no model fit yet) |
-| 200.0 | 150–280 | 0.714 | raw data (no model fit yet) |
-| 1300.0 | 1200–1400 | 0.571 | `model_params/best_fit_params_1300.0_days.csv` |
-| 1700.0 | 1600–1800 | 0.429 | `model_params/best_fit_params_1700.0_days.csv` |
-| 2100.0 | 2000–2200 | 0.286 | `model_params/best_fit_params_2100.0_days.csv` |
-| 2500.0 | 2350–2550 | 0.143 | `model_params/best_fit_params_2500.0_days.csv` |
+| 12.7 | — (single X-ray spectrum, ObsID 20306) | 0.900 | `data/Chandra/20306/repro/` |
+| 20.0 | 10–30 | 0.800 | raw data (no model fit yet) |
+| 200.0 | 150–280 | 0.700 | raw data (no model fit yet) |
+| 1300.0 | 1200–1400 | 0.600 | `model_params/best_fit_params_1300.0_days.csv` |
+| 1700.0 | 1600–1800 | 0.500 | `model_params/best_fit_params_1700.0_days.csv` |
+| 1868.7 | — (single X-ray spectrum, merged ObsIDs 29071+29072) | 0.400 | `data/Chandra/29071_29072_merged/` |
+| 2100.0 | 2000–2200 | 0.300 | `model_params/best_fit_params_2100.0_days.csv` |
+| 2500.0 | 2350–2550 | 0.200 | `model_params/best_fit_params_2500.0_days.csv` |
+| 2550.3 | — (single X-ray spectrum, merged ObsIDs 31211+31996) | 0.100 | `data/Chandra/31211_31996_merged/` |
 | 2650.0 | 2550–2750 | 0.000 | `model_params/best_fit_params_2650.0_days.csv` |
 
-**No early-epoch (~4–1000 day) model fits exist yet in `model_params/`** — the three
-early epochs above are data-points-only (see `sed_epoch_grid.ipynb`).
+X-ray epochs have no "phase range" (each is one specific merged/unmerged spectrum,
+not a window that other survey data points get binned into the way VLA/ALMA points
+are for the radio epochs) — their day value is the exact phase computed from the
+spectrum's `DATE-OBS` header vs. explosion epoch MJD 58445.0 (Maeda et al. 2023a),
+not a rounded bin center. Note 2550.3 (X-ray) sits between the existing 2500.0 and
+2650.0 radio bins but is kept as a separate list entry, not merged into either —
+it's a different instrument/observation, not the same epoch.
 
-**Known inconsistency (intentional, by user decision on 2026-08-19):** adding the
-three early epochs shifted the `x` position of every late-time epoch versus the old
-5-epoch-only mapping (`x = linspace(1, 0, 5)` → 1300.0/1700.0/2100.0/2500.0/2650.0 at
-1.00/0.75/0.50/0.25/0.00). The user chose *not* to regenerate the older figures that
-still use that 5-epoch mapping — `figures/vlba_proposal_sed.png/pdf`,
+**No early-epoch (~4–1000 day) model fits exist yet in `model_params/`** — the three
+early radio epochs above are data-points-only (see `sed_epoch_grid.ipynb`).
+
+**Known inconsistency #1 (intentional, by user decision on 2026-08-19):** adding the
+three early radio epochs shifted the `x` position of every late-time epoch versus the
+old 5-epoch-only mapping (`x = linspace(1, 0, 5)` → 1300.0/1700.0/2100.0/2500.0/2650.0
+at 1.00/0.75/0.50/0.25/0.00). The user chose *not* to regenerate the older figures
+that still use that 5-epoch mapping — `figures/vlba_proposal_sed.png/pdf`,
 `figures/sed_all_epochs_one_plot.png`, and `figures/sed_subplots.png` (built in
 `vlba_proposal_figures.ipynb` and `all_sed_plot.ipynb`) — so those figures'
 late-epoch colors do NOT match the same epochs in `sed_epoch_grid.ipynb` or any
-future figure built off the 8-epoch list. Do not silently "fix" this by regenerating
-those older notebooks; ask first, since one of them feeds a proposal document.
+newer figure. Do not silently "fix" this by regenerating those older notebooks; ask
+first, since one of them feeds a proposal document.
+
+**Resolved 2026-09-01 — `sed_epoch_grid.ipynb` regenerated for the 11-epoch mapping.**
+Adding the 3 X-ray epochs shifted the `x` position of every radio epoch versus the
+old 8-epoch-only mapping (e.g. 1300.0 moves from `x=0.571` to `x=0.600`).
+`sed_epoch_grid.ipynb` now hardcodes each radio epoch's `x` from the current
+11-epoch canonical table above (`CANONICAL_X` dict in the notebook) instead of
+computing `linspace(1, 0, len(epoch_info))` locally over just its own 8 epochs —
+that local-linspace approach is what silently produced the old, now-wrong mapping,
+so don't revert to it. `figures/sed_epoch_grid.png/.pdf` reflect the update.
+
+`vlba_proposal_sed.png/pdf`, `sed_all_epochs_one_plot.png`, and `sed_subplots.png`
+(the legacy 5-epoch-mapping figures from inconsistency #1) were **not** touched by
+this update either — they were already inconsistent with `sed_epoch_grid.ipynb`
+before this change and remain so; this update didn't add a new inconsistency for
+them, just carried the existing one forward.
 
 If new epochs are introduced again in the future:
 1. Insert them in chronological order at the front of the list (they're younger).
@@ -185,6 +215,20 @@ Do not manually override an individual epoch's color to something off-map (e.g. 
 custom hex) unless the figure is deliberately highlighting that epoch —
 `all_sed_plot.ipynb` does this once (`colors[0] = "#D4710A"`); treat that as an
 intentional one-off, not the default pattern.
+
+**Model/fit-curve color, when a figure overlays a best-fit curve on epoch-colored
+data points** (e.g. the X-ray `xray_spectra_*_fit.ipynb` notebooks): don't introduce
+an unrelated fixed color (black, blue, etc.) for the curve — that's the "arbitrary
+palette" the reference-figure caveat above warns against. Instead derive the curve
+color from the same epoch's viridis color via a `darken_color` helper (already used
+this way in `sed_epoch_grid.ipynb`):
+```python
+def darken_color(color, factor=0.7):
+    rgb = mcolors.to_rgb(color)
+    return tuple(factor * c for c in rgb)
+```
+so the data points and their model curve are visibly linked (same hue family) while
+still distinguishable from each other.
 
 ### Frequency/band → turbo color (light curves)
 

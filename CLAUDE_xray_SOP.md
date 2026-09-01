@@ -26,11 +26,15 @@ HEASoft software install, not data — ignore it for inventory purposes.
 | 31211 | SN 2018ivc | 2025-11-16 08:06–14:19 | 19.8 ks | Poonam Chandra / 503689 | Fully repro'd + spectrum extracted (see below). Same visit as 31996 — see note. |
 | 31996 | SN 2018ivc | 2025-11-16 17:44–23:05 | 16.7 ks | Poonam Chandra / 503689 | **Same epoch as 31211**, not a separate one — same SEQ_NUM, same day, ~3.5 hr gap consistent with a Chandra visit split across two ObsIDs (e.g. radiation-belt interrupt). Reprocessed, extracted, and combined with 31211 into one merged spectrum 2026-09-01 (Steps 2–3.5) — see `data/Chandra/31211_31996_merged/`. |
 | 20306 | SN 2018ivc | 2018-12-05 16:39–20:00 | 10.0 ks | David Pooley / 503002 | Genuinely distinct, early epoch (~1 month post-explosion). Different program than 31211/31996. Reprocessed + extracted 2026-09-01. Uses a **20306-specific source region** (not the shared canonical one) — see Step 3 note. Final: 237 src / 24 bkg counts, strong detection. |
-| 29071 | NGC 1068 | 2024-01-04 17:29–21:14 | 10.3 ks | Andrea Marinucci / 705139 | **Post-explosion** (SN went off Nov 2018), ~5 yr after explosion. Serendipitous — from an AGN-monitoring program targeting the host galaxy, not a SN 2018ivc-targeted program. SN position confirmed on active chip (chip_id 7 / ACIS-S3, off-axis 0.33′, well clear of edges/gaps). Reprocessed + extracted 2026-09-01 — 64 src / 4 bkg counts, faint but clearly detected (SN faded substantially by this epoch). |
-| 29072 | NGC 1068 | 2024-01-28 17:36–21:01 | 9.3 ks | Andrea Marinucci / 705140 | Same program as 29071, ~3.5 weeks later. SN position confirmed on active chip (chip_id 7, off-axis 0.25′). Reprocessed + extracted 2026-09-01 — 45 src / 8 bkg counts, faint but detected. |
+| 29071 | NGC 1068 | 2024-01-04 17:29–21:14 | 10.3 ks | Andrea Marinucci / 705139 | **Post-explosion** (SN went off Nov 2018), ~5 yr after explosion. Serendipitous — from an AGN-monitoring program targeting the host galaxy, not a SN 2018ivc-targeted program. SN position confirmed on active chip (chip_id 7 / ACIS-S3, off-axis 0.33′, well clear of edges/gaps). Reprocessed + extracted 2026-09-01 — 64 src / 4 bkg counts, faint but clearly detected. **Combined with 29072 into one merged spectrum 2026-09-01** (Step 3.5b) — same phase to within 1.3%, rates statistically consistent (1.4σ) — see `data/Chandra/29071_29072_merged/`. |
+| 29072 | NGC 1068 | 2024-01-28 17:36–21:01 | 9.3 ks | Andrea Marinucci / 705140 | Same program as 29071, ~3.5 weeks later. SN position confirmed on active chip (chip_id 7, off-axis 0.25′). Reprocessed + extracted 2026-09-01 — 45 src / 8 bkg counts, faint but detected. **Combined with 29071** — see Step 3.5b. |
 
-So: **4 genuinely independent epochs** so far (20306; the merged 31211+31996 visit;
-29071; 29072), spanning ~1 month to ~5 years post-explosion, not 5.
+So: **3 genuinely independent epochs** (20306; the merged 31211+31996 visit; the
+merged 29071+29072 visit pair), spanning ~1 month to ~7 years post-explosion.
+(29071/29072 are 24 days apart but both ~5 yr post-explosion — merged per the
+justification in Step 3.5b, not treated as separate epochs despite being different
+ObsIDs from different visits, unlike 31211/31996 which really were one interrupted
+visit.)
 
 ## Step 1 — Data acquisition
 
@@ -241,11 +245,200 @@ unmerged spectra instead of physically combining them (more rigorous, avoids
 exposure-weighting responses together, but more setup) — revisit at Step 4 if the
 combined-spectrum approach turns out to be insufficient.
 
-## Step 4 — Spectral fitting (not started)
+## Step 3.5b — Combine 29071 + 29072 into one spectrum
 
-Not yet done for any epoch. Will use Sherpa (within `ciao-4.17`) or XSPEC on the
-grouped/background-subtracted spectra from Step 3 (or the combined spectrum from
-Step 3.5, once that exists).
+Done 2026-09-01, same rationale and method as Step 3.5, but for a different reason:
+29071 and 29072 are *not* one interrupted visit (different dates, 24 days apart,
+same AGN-monitoring program) — they're merged because, at their shared phase
+(~5 yr post-explosion), that 24-day gap is only a 1.3% fractional change in phase,
+and the measured rates are statistically indistinguishable: 29071 net rate
+(6.19 ± 0.78)×10⁻³ cts/s vs. 29072 (4.72 ± 0.72)×10⁻³ cts/s, a 1.4σ difference. At
+this late a phase CSM-interaction X-ray emission evolves over months–years, not
+weeks, so there's no physical basis to expect a real flux change between the two,
+and combining trades a much better-constrained single spectrum for that epoch
+against negligible averaging risk.
+
+```bash
+combine_spectra \
+  src_spectra=29071/repro/SN2018ivc_specextract.pi,29072/repro/SN2018ivc_specextract.pi \
+  outroot=29071_29072_merged/SN2018ivc_merged \
+  method=sum bscale_method=asca exp_origin=pha clobber=yes verbose=2
+```
+
+Output in `data/Chandra/29071_29072_merged/`: `SN2018ivc_merged_src.pi/.arf/.rmf` +
+`SN2018ivc_merged_bkg.pi/.arf/.rmf`. Verified: 109 source counts (64+45 ✓), 12
+background counts (4+8 ✓), exposure 19581.4 s (10252.9+9328.5 ✓). `DATE-OBS` in the
+merged file header is inherited from the first-listed spectrum (29071, 2024-01-04) —
+used as the nominal date for this merged epoch's phase calculation.
+
+Same caveat as Step 3.5: merged spectrum is ungrouped (`group_counts(1)` applied at
+plot/fit time per the Step 4 decision, not baked into the file).
+
+## Step 4 — Spectral fitting
+
+Binning/statistic choice decided 2026-09-01 (see below); first round of fits
+(3 models × 3 epochs) run 2026-09-01, see "Fit results" below.
+
+### Grouping-choice QA (done 2026-09-01, before the 29071+29072 merge decision)
+
+Compared `group_counts` at 5/10/20/50 counts/bin for the (then-4) unique epochs
+before deciding on a fitting approach. Data extraction
+(`data/Chandra/spectral_fitting/extract_grouping_qa.py`, run under `ciao-4.17` —
+Sherpa isn't in `18ivc_clean`) loads each epoch's source PHA, `subtract()`s the
+background, restricts to 0.3–8 keV, applies `group_counts` at each binning, and
+dumps `get_data_plot()`'s grouped rate/energy/errors to CSV
+(`data/Chandra/spectral_fitting/grouping_qa/<epoch>_group<N>.csv`).
+
+Resulting bin counts (29071/29072 shown separately, as extracted — pre-merge):
+
+| Epoch (total src counts) | 5 cts/bin | 10 cts/bin | 20 cts/bin | 50 cts/bin |
+|---|---|---|---|---|
+| 20306 (237) | 44 | 23 | 12 | 5 |
+| 31211+31996 merged (506) | 87 | 47 | 24 | 10 |
+| 29071 (64) | 13 | 7 | 4 | 2 |
+| 29072 (45) | 9 | 5 | 3 | **1** |
+
+After the 29071+29072 merge (Step 3.5b), `extract_grouping_qa.py`'s `EPOCHS` dict
+was updated to the 3 final epochs and rerun (old `29071_group*.csv`/`29072_group*.csv`
+deleted, replaced by `29071_29072_group*.csv`; e.g. `group_counts(20)` now gives 6
+bins for the merged pair instead of 4 and 3 separately) — the table above is a
+point-in-time record of the pre-merge comparison, not the current file layout.
+
+### Per-epoch spectrum figure (`figure_notebooks/xray_spectra_by_epoch.ipynb`)
+
+Repurposed from an earlier `xray_grouping_comparison` notebook (deleted, along with
+its `figures/xray_grouping_comparison.png/.pdf`) at the user's request: rather than
+comparing binnings, this figure shows one spectrum per unique epoch, one panel per
+epoch, ordered chronologically by phase post-explosion. Phase computed from each
+merged/unmerged source PHA's `DATE-OBS` header vs. explosion epoch MJD 58445.0
+(Maeda et al. 2023a); title format
+`"<obsid(s)> (<date>, ~<N> days post-explosion)"` (standardized to days across all
+panels — an earlier months/years version was replaced at the user's request).
+Output: `figures/xray_spectra_by_epoch.png/.pdf`. Currently 3 panels (1×3 layout,
+chronological left to right): 20306 (~13 days), 29071+29072 merged (~1869 days),
+31211+31996 merged (~2550 days). Grouping was `group_counts(1)` initially, then
+updated to **`group_counts(15)`** (2026-09-01) to match the final fitting grouping
+decided above — much cleaner spectral shape visible per panel than the
+single-count-per-bin version. Update this notebook (not a new one) if another epoch
+is added/merged, or the grouping choice changes again — reread
+`CLAUDE_plotting.md`/the `18ivc-plotting` skill first, per the "revising an existing
+figure" workflow.
+
+### Fitting statistic decision (2026-09-01)
+
+At these count levels, coarse grouping for chi2 fitting is the wrong tool — chi2
+needs roughly Gaussian per-bin errors (rule of thumb ≳20–25 counts/bin), which the
+50 cts/bin column above makes obviously untenable for 29071/29072 (collapses to 1–2
+bins, destroying essentially all spectral shape information for exactly the epochs
+that need it most). **Decision: use a Poisson-likelihood statistic (Cash-family) for
+all epochs**, not chi2. C-stat/wstat stay unbiased down to very low counts, and
+using one consistently across all epochs (rather than switching statistic by epoch
+brightness) keeps the fitting method consistent project-wide. (Decided when there
+were 4 unique epochs; still applies unchanged now that 29071+29072 are merged
+into 3.)
+
+**Practical correction found when actually fitting (2026-09-01): use `wstat`, not
+`cstat`.** Sherpa refuses `cstat` on background-subtracted data
+(`FitErr: cstat statistics cannot be used with background subtracted data`) — cstat
+assumes the data being fit are themselves Poisson-distributed counts, which
+background-subtracted values aren't. The fix isn't to go back to chi2: `wstat` is
+the standard Cash-family statistic built for exactly this case (Poisson source +
+Poisson background, fit jointly without subtracting), so the fits load the PHA
+*without* `subtract()` and use `set_stat("wstat")` instead. This is still the same
+"unbiased Poisson likelihood, no chi2 Gaussian-approximation bias" approach the
+original decision was about — just the specific Sherpa statistic name.
+
+**Grouping revisited 2026-09-01, after the 29071+29072 merge raised that epoch to
+109 counts.** With more counts, the user asked about chi2 with 10-20 cts/bin.
+Key clarification that resolved this without abandoning C-stat: **grouping level and
+fit statistic are independent choices.** The chi2 bias concern above is specifically
+about approximating Poisson counts as Gaussian — it doesn't apply to C-stat
+regardless of how coarsely the data is grouped, since C-stat computes an exact
+Poisson likelihood on whatever counts land in each bin (grouped or not). So a
+courtesy grouping in the 10-20 range is safe under C-stat purely as a
+resolution/plotting convenience, without reintroducing the bias that made chi2 risky
+in the first place.
+
+**Final decision: `group_counts(15)` + wstat**, for all 3 epochs — splits the
+10-20 range, gives comfortable bin counts (20306: 16 bins; 29071+29072: 8 bins;
+31211+31996: 32 bins) without discarding much resolution. This grouping is what's
+used both for the `xray_spectra_by_epoch` figure (above) and the fits below.
+
+### Fit results (first round, 2026-09-01)
+
+At the user's request, fit **3 spectral models × 3 epochs = 9 fits**, to compare
+across models rather than pre-committing to one. All 9 use: `group_counts(15)`,
+0.3–8 keV, `wstat`, N_H frozen at the Galactic value toward SN 2018ivc —
+**2.6×10²⁰ cm⁻² (0.026 in `tbabs` units of 10²² cm⁻²)**, looked up via HEASoft's
+`nh` tool (HI4PI survey) at RA 40.672 / Dec −0.0089:
+```bash
+export HEADAS=<repo>/data/Chandra/heasoft-6.36/aarch64-apple-darwin24.6.0
+source $HEADAS/headas-init.sh
+printf "2000\n40.672\n-0.0089\n" | nh
+```
+N_H free was not attempted — with 2–3 free parameters already and only 109–506
+counts per epoch, adding a 3rd/4th free parameter (N_H) was judged unlikely to be
+meaningfully constrained; revisit if a future epoch has enough counts to support it.
+
+Models (all via Sherpa/XSPEC components, `data/Chandra/spectral_fitting/fit_models.py`):
+- **`tbabs*apec`** — absorbed single-T thermal plasma. Abundance frozen at solar,
+  redshift frozen at 0.003793. Free: kT, norm.
+- **`tbabs*powerlaw`** — absorbed simple power law. Free: PhoIndex (Γ), norm.
+- **`tbabs*bremss`** — absorbed thermal free-free continuum. Free: kT, norm.
+  (`bremss`/`powerlaw` have no redshift parameter in XSPEC — fine, z=0.0038 is a
+  negligible continuum-shape correction at this resolution, not worth a
+  `zbremss`/`zpowerlw` swap.)
+
+Full results (`data/Chandra/spectral_fitting/fits/fit_summary.csv`; per-model folded
+model curves in `fits/<model>/<epoch>_model.csv`):
+
+| Model | Epoch | Free param 1 | Free param 2 (norm) | W-stat/dof | Fit quality |
+|---|---|---|---|---|---|
+| apec | 20306 | kT = 64.0 keV (**pegged at hard max**) | 2.58e-4 | 107.3/14 | Poor — `conf()` refused (rstat 7.7 > Sherpa's guard of 3) |
+| apec | 29071+29072 | kT = 28.2 keV (essentially unconstrained: −18.2/+∞) | 6.90e-5 (+2.06e-5/−1.15e-5) | 1.1/6 | Formally fine but uninformative on kT |
+| apec | 31211+31996 | kT = 7.51 (+3.00/−1.27) keV | 1.567e-4 (±7e-6) | 36.4/30 | Reasonable, physically plausible shock temperature |
+| powerlaw | 20306 | Γ = 0.19 (±0.13) | 1.49e-5 | 31.8/14 | Better than thermal models, still not great (very hard index) |
+| powerlaw | 29071+29072 | Γ = 1.33 (+0.20/−0.19) | 1.40e-5 | 1.0/6 | Fine, unremarkable |
+| powerlaw | 31211+31996 | Γ = 1.59 (+0.10/−0.08) | 4.54e-5 | 38.2/30 | Good fit |
+| bremss | 20306 | kT = 200 keV (**pegged at hard max**) | 1.22e-4 | 98.9/14 | Poor, same pattern as apec |
+| bremss | 29071+29072 | kT = 39.3 keV (essentially unconstrained: −26.6/+∞) | 2.57e-5 | 1.2/6 | Formally fine but uninformative on kT |
+| bremss | 31211+31996 | kT = 8.61 (+2.88/−1.80) keV | 5.89e-5 | 34.4/30 | Good fit, slightly best rstat of the 3 models for this epoch |
+
+Comparison figures (data points + best-fit curve, 1×3 chronological panels, same
+data/style as `xray_spectra_by_epoch`): `figure_notebooks/xray_spectra_apec_fit.ipynb`,
+`xray_spectra_powerlaw_fit.ipynb`, `xray_spectra_bremss_fit.ipynb` →
+`figures/xray_spectra_{apec,powerlaw,bremss}_fit.png/.pdf`.
+
+**Interpretation / open questions for next session:**
+- **20306 (~13 days, brightest per-exposure epoch, 16 bins): both thermal models
+  fail outright** — kT runs to its hard parameter-space boundary in both apec (64
+  keV) and bremss (200 keV), i.e. the fit wants a temperature hotter than the model
+  grid supports, and W/dof ≈ 7 is a bad fit either way. Power law fits
+  noticeably better (W/dof ≈ 2.3) but with an unusually flat/hard index
+  (Γ ≈ 0.19 — most astrophysical hard-continuum sources are Γ ≳ 1). A hard index
+  like this is often a sign of **intrinsic (host/CSM) absorption being
+  under-modeled** (fixed N_H here is Galactic-only) suppressing the soft end and
+  mimicking hardness, rather than the source truly being that hard. Worth
+  revisiting with intrinsic N_H free (or a 2nd absorber) specifically for this
+  epoch once there's appetite to add a 3rd free parameter, and/or a two-temperature
+  thermal model.
+- **29071+29072 (~1869 days, 8 bins, 109 counts): all 3 models fit "fine" (W/dof
+  ≲ 1) but none meaningfully constrain their shape parameter** — kT/Γ uncertainties
+  are huge or one-sided-unbounded. Can't yet discriminate emission mechanism at
+  this epoch; more counts (a future epoch, or reconsidering exposure) would help
+  more than model choice does.
+- **31211+31996 (~2550 days, 32 bins, 506 counts, best-constrained epoch): all 3
+  models fit comparably well** (W/dof 1.15–1.27) — apec kT ≈ 7.5 keV and bremss
+  kT ≈ 8.6 keV agree well with each other (as expected, similar physics), powerlaw
+  Γ ≈ 1.59 is unremarkable. Not possible to statistically prefer one model over
+  another from goodness-of-fit alone at this S/N; model choice for this epoch
+  should probably be driven by physical expectation (CSM-interaction shocked
+  plasma → thermal is the more motivated choice) rather than fit statistics.
+- No formal model-comparison statistic (e.g. AIC/BIC, or an F-test analog) has been
+  computed yet — the table above is goodness-of-fit per model, not a ranking.
+
+**Not yet done:** flux/luminosity conversion (Step 5) from any of these fits —
+explicitly deferred, do not start without being asked.
 
 ## Step 5 — Flux / luminosity conversion (not started)
 
@@ -254,8 +447,13 @@ host (NGC 1068, z = 0.003793 — see [[project_sn2018ivc]] memory).
 
 ## Open items / TODO
 
-- All 4 independent epochs now have extracted spectra (20306; merged 31211+31996;
-  29071; 29072). Grouping has not been applied/reapplied to the merged 31211+31996
-  spectrum (see Step 3.5) — decide at fitting time.
-- Spectral fitting (Step 4) and flux/luminosity conversion (Step 5) — explicitly
-  deferred by the user as of 2026-09-01; do not start without being asked.
+- First round of fitting is done: 3 models (apec/powerlaw/bremss) × 3 epochs, wstat,
+  `group_counts(15)`, N_H fixed at Galactic — see Step 4 "Fit results" for the full
+  table and per-epoch interpretation.
+- Follow-ups flagged by the first round, not yet done: (1) 20306's thermal-model fits
+  peg at their hard kT boundary and fit poorly — worth trying free intrinsic N_H (or
+  a 2nd absorber) for that epoch specifically; (2) no formal model-comparison
+  statistic (AIC/BIC or similar) computed yet, so "which model is best" per epoch is
+  only informal so far.
+- Flux/luminosity conversion (Step 5) — explicitly deferred by the user; do not
+  start without being asked.
