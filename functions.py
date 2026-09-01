@@ -64,6 +64,31 @@ def insert_every_two(arr, val):
 
 
 #---------------Plotting Functions---------------#
+def set_plot_style():
+    """Apply the shared 18ivc paper plotting style.
+
+    Matches the formatting reference figures/19yvr_figformat_example.png
+    (serif/Times font, axes/tick sizing, inward mirrored ticks). Call this
+    once at the top of any notebook cell that builds a paper figure instead
+    of redefining these rcParams inline, so all figures stay in sync.
+    """
+    rcParams.update({
+        "font.family": "serif",
+        "font.serif": ["Times New Roman", "Times", "DejaVu Serif"],
+        "font.size": 14,
+        "axes.labelsize": 16,
+        "axes.titlesize": 20,
+        "legend.fontsize": 11,
+        "xtick.labelsize": 12,
+        "ytick.labelsize": 12,
+        "axes.linewidth": 1.2,
+        "xtick.direction": "in",
+        "ytick.direction": "in",
+        "xtick.top": True,
+        "ytick.right": True,
+    })
+
+
 def get_viridis_hex(n):
     cmap = plt.get_cmap("viridis")
     return [to_hex(cmap(i)) for i in np.linspace(0, 1, n)]
@@ -574,7 +599,7 @@ def one_comp_ls_fit(data, phase_lower, phase_upper, xmin, xmax, comp1_guess, nu1
         lower_bounds = [amp_lower, min(freq)*0.5]
         upper_bounds = [np.inf, nu_p1_last]
     else:
-        lower_bounds = [amp_lower, min(freq)*0.5, 2.0]
+        lower_bounds = [amp_lower, min(freq)*0.5, 1.5]
         upper_bounds = [np.inf, nu_p1_last, 5.0]
     bounds = (lower_bounds, upper_bounds)
 
@@ -657,8 +682,8 @@ def two_comp_ls_fit(data, phase_lower, phase_upper, xmin, xmax, comp1_guess, com
 
     # use BOUNDS to enforce that components don't swap/ever move up in frequency
     lower_bounds = (
-        ([amp_lower, min(freq)*0.5] if p1_fixed is not None else [amp_lower, min(freq)*0.5, 2.0]) +
-        ([amp_lower, min(freq)*0.5] if p2_fixed is not None else [amp_lower, min(freq)*0.5, 2.0])
+        ([amp_lower, min(freq)*0.5] if p1_fixed is not None else [amp_lower, min(freq)*0.5, 1.5]) +
+        ([amp_lower, min(freq)*0.5] if p2_fixed is not None else [amp_lower, min(freq)*0.5, 1.5])
     )
     upper_bounds = (
         ([np.inf, nu_p1_last] if p1_fixed is not None else [np.inf, nu_p1_last, 5.0]) +
@@ -778,9 +803,9 @@ def three_comp_ls_fit(data, phase_lower, phase_upper, xmin, xmax, comp1_guess, c
 
     # use BOUNDS to enforce that components don't swap/ever move up in frequency
     lower_bounds = (
-        ([amp_lower, min(freq)*0.5] if p1_fixed is not None else [amp_lower, min(freq)*0.5, 2.0]) +
-        ([amp_lower, min(freq)*0.5] if p2_fixed is not None else [amp_lower, min(freq)*0.5, 2.0]) +
-        ([amp_lower, min(freq)*0.5] if p3_fixed is not None else [amp_lower, min(freq)*0.5, 2.0])
+        ([amp_lower, min(freq)*0.5] if p1_fixed is not None else [amp_lower, min(freq)*0.5, 1.5]) +
+        ([amp_lower, min(freq)*0.5] if p2_fixed is not None else [amp_lower, min(freq)*0.5, 1.5]) +
+        ([amp_lower, min(freq)*0.5] if p3_fixed is not None else [amp_lower, min(freq)*0.5, 1.5])
     )
     upper_bounds = (
         ([np.inf, nu_p1_last] if p1_fixed is not None else [np.inf, nu_p1_last, 5.0]) +
