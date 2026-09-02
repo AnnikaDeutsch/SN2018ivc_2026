@@ -409,6 +409,15 @@ data/style as `xray_spectra_by_epoch`): `figure_notebooks/xray_spectra_apec_fit.
 `xray_spectra_powerlaw_fit.ipynb`, `xray_spectra_bremss_fit.ipynb` →
 `figures/xray_spectra_{apec,powerlaw,bremss}_fit.png/.pdf`.
 
+**Advisor guidance 2026-09-02 — add residual panels:** each per-epoch panel in the
+three fit-comparison figures above should get a residuals sub-panel plotted directly
+below the fitted spectrum (data−model, in the same per-epoch column), not just the
+spectrum + best-fit curve alone. Applies to all three model figures
+(`xray_spectra_{apec,powerlaw,bremss}_fit.png/.pdf`) — update the existing notebooks
+in place rather than creating new ones, per the usual "revising an existing figure"
+workflow (reread `CLAUDE_plotting.md`/the `18ivc-plotting` skill first). Not yet
+started.
+
 **Interpretation / open questions for next session:**
 - **20306 (~13 days, brightest per-exposure epoch, 16 bins): both thermal models
   fail outright** — kT runs to its hard parameter-space boundary in both apec (64
@@ -440,10 +449,46 @@ data/style as `xray_spectra_by_epoch`): `figure_notebooks/xray_spectra_apec_fit.
 **Not yet done:** flux/luminosity conversion (Step 5) from any of these fits —
 explicitly deferred, do not start without being asked.
 
+### Advisor guidance 2026-09-02 — improving the final-epoch (31211+31996) fit
+
+The final epoch (31211+31996, ~2550 days post-explosion, best-constrained at 506
+counts) shows residuals in the pure power-law fit consistent with thermal emission
+lines — a pure synchrotron power law alone doesn't fully capture the spectral shape
+there. Advisor-directed procedure to improve wstat:
+
+1. Identify the line(s) by energy using the X-ray data booklet's emission-line energy
+   chart (compare the residual line energy against known transition energies).
+2. Add a Gaussian component (`xsgaussian`/`zgauss`-equivalent) at each identified
+   line's energy, on top of the existing continuum model.
+3. Fix the Gaussian's energy centroid at the identified line energy, then vary its
+   other free parameters (width, normalization) to find the combination that gives
+   the greatest improvement to wstat.
+
+Not yet started — documenting the plan per advisor meeting 2026-09-02.
+
 ## Step 5 — Flux / luminosity conversion (not started)
 
 Not yet done. Depends on Step 4 fit results plus the adopted distance/redshift to the
 host (NGC 1068, z = 0.003793 — see [[project_sn2018ivc]] memory).
+
+### Methodology (advisor guidance 2026-09-02)
+
+- **Per-epoch model choice:** derive the luminosity at each epoch using whichever
+  spectral model best fits *that* epoch (per the Step 4 model comparison), not one
+  model forced uniformly across all epochs.
+- **Tooling:** either XSPEC's `lum` command (specify the energy range and supply the
+  redshift, z = 0.003793) or PIMMS on HEASARC are acceptable for the flux→luminosity
+  conversion.
+- **Expected model-independence:** the derived luminosity should not change much
+  regardless of which model is used, since it's essentially the area under the
+  spectral curve (integrated flux) rather than something sensitive to the detailed
+  shape. Before committing to final per-epoch numbers, run a sanity-check test on a
+  single epoch — compute luminosity from more than one of the fitted models for that
+  epoch and confirm they agree — to demonstrate this model-independence.
+- **Final numbers:** once the sanity check is done, use the best-fitting model per
+  epoch (not an arbitrary/uniform choice) for the adopted luminosity values.
+
+Not yet started — documenting the plan per advisor meeting 2026-09-02.
 
 ## Open items / TODO
 
@@ -456,4 +501,16 @@ host (NGC 1068, z = 0.003793 — see [[project_sn2018ivc]] memory).
   statistic (AIC/BIC or similar) computed yet, so "which model is best" per epoch is
   only informal so far.
 - Flux/luminosity conversion (Step 5) — explicitly deferred by the user; do not
-  start without being asked.
+  start without being asked. Methodology now documented (advisor guidance
+  2026-09-02): best-fitting model per epoch, via XSPEC `lum` or PIMMS, with a
+  single-epoch cross-model sanity check first to confirm luminosity is
+  model-independent.
+- Final-epoch (31211+31996) fit improvement — not yet started: identify thermal
+  line residuals via the X-ray data booklet's emission-line chart, add a Gaussian
+  per line with fixed centroid, vary width/norm to maximize wstat improvement (see
+  Step 4 "Advisor guidance 2026-09-02").
+- Residual panels for the fit-comparison figures — not yet started: add a
+  data−model residuals sub-panel below the spectrum in each per-epoch column of
+  `xray_spectra_{apec,powerlaw,bremss}_fit.png/.pdf`, updating the existing three
+  notebooks in place (see Step 4 "Advisor guidance 2026-09-02 — add residual
+  panels").
