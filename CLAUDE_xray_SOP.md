@@ -5,6 +5,12 @@ living document, built up step by step as the analysis proceeds — each stage g
 documented here once it's actually been done, not in advance. Read this before
 picking the X-ray analysis back up in a new session.
 
+**Never run `git commit` (or `git push`) in this repo, on any file, for any reason,
+even if asked to "commit" as part of a broader task.** The user always commits
+directly themselves. Editing/creating/regenerating files, running analysis, and
+staging (`git add`) are all fine — just never create the commit itself. If in doubt,
+stop short of committing and say so rather than asking for one-time confirmation.
+
 Data lives under `data/Chandra/`. The `heasoft-6.36/` subdirectory there is the
 HEASoft software install, not data — ignore it for inventory purposes.
 
@@ -409,14 +415,37 @@ data/style as `xray_spectra_by_epoch`): `figure_notebooks/xray_spectra_apec_fit.
 `xray_spectra_powerlaw_fit.ipynb`, `xray_spectra_bremss_fit.ipynb` →
 `figures/xray_spectra_{apec,powerlaw,bremss}_fit.png/.pdf`.
 
-**Advisor guidance 2026-09-02 — add residual panels:** each per-epoch panel in the
-three fit-comparison figures above should get a residuals sub-panel plotted directly
-below the fitted spectrum (data−model, in the same per-epoch column), not just the
-spectrum + best-fit curve alone. Applies to all three model figures
-(`xray_spectra_{apec,powerlaw,bremss}_fit.png/.pdf`) — update the existing notebooks
-in place rather than creating new ones, per the usual "revising an existing figure"
-workflow (reread `CLAUDE_plotting.md`/the `18ivc-plotting` skill first). Not yet
-started.
+**Advisor guidance 2026-09-02 — add residual panels: done 2026-09-02.** Each
+per-epoch panel in the three fit-comparison figures now has a data−model residuals
+sub-panel plotted directly below the fitted spectrum (same per-epoch column, shared
+x-axis). Implementation:
+
+- `data/Chandra/spectral_fitting/fit_models.py` (run under `ciao-4.17`, needs Sherpa)
+  extended to also call `get_resid_plot(1)` after each fit and dump
+  `fits/<model>/<epoch>_resid.csv` (`energy_kev`, `energy_err_kev`, `resid`,
+  `resid_err`), at the same `group_counts(15)` bin resolution as the data. This is
+  **not** the same as differencing the existing `_model.csv` curve against the data —
+  that CSV is a fine unbinned model curve (~528 points from `get_model_plot`), while
+  residuals need the model folded at the actual fit bins; `get_resid_plot` does that
+  correctly. `ResidPHAPlot` exposes bin edges as `xlo`/`xhi`, not a symmetric `xerr`
+  — half-width computed as `(xhi-xlo)/2` to match the data errorbar convention.
+  Rerunning the script reproduced the exact same `statval`/`dof` as the original fit
+  round (fully deterministic re-fit), so `fit_summary.csv` and the `_model.csv`
+  curves are unchanged, just regenerated alongside the new `_resid.csv` files.
+- All three notebooks (`xray_spectra_{apec,powerlaw,bremss}_fit.ipynb`) edited in
+  place: plotting cell switched from `plt.subplots(1,3,...)` to a `GridSpec(2,3,
+  height_ratios=[3,1])`, spectrum row on top (sharex/sharey across the 3 epoch
+  columns, as before) and a residuals row below (sharex per column with its
+  spectrum panel, **not** sharey across epochs — residual amplitude varies ~30x
+  between the faint 29071+29072 epoch and the others, so a shared y-axis would flatten
+  it unreadably). Residual points use the same per-epoch viridis color as the data
+  points; a `axhline(0)` marks the zero line. Re-executed under `18ivc_clean` via
+  `jupyter nbconvert --execute --inplace`.
+- Visual confirmation: the 31211+31996 residual panel in the power-law figure clearly
+  shows the ~2.9 keV and ~6.7 keV residual bumps that motivate the "improve final
+  epoch fit" advisor guidance below — consistent with that plan.
+
+Output: `figures/xray_spectra_{apec,powerlaw,bremss}_fit.png/.pdf` regenerated.
 
 **Interpretation / open questions for next session:**
 - **20306 (~13 days, brightest per-exposure epoch, 16 bins): both thermal models
@@ -509,8 +538,5 @@ Not yet started — documenting the plan per advisor meeting 2026-09-02.
   line residuals via the X-ray data booklet's emission-line chart, add a Gaussian
   per line with fixed centroid, vary width/norm to maximize wstat improvement (see
   Step 4 "Advisor guidance 2026-09-02").
-- Residual panels for the fit-comparison figures — not yet started: add a
-  data−model residuals sub-panel below the spectrum in each per-epoch column of
-  `xray_spectra_{apec,powerlaw,bremss}_fit.png/.pdf`, updating the existing three
-  notebooks in place (see Step 4 "Advisor guidance 2026-09-02 — add residual
-  panels").
+- Residual panels for the fit-comparison figures — done 2026-09-02 (see Step 4
+  "Advisor guidance 2026-09-02 — add residual panels: done").

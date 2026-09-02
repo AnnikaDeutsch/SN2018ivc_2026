@@ -3,6 +3,12 @@
 Conventions for producing format-consistent plots for the 18ivc paper. Read this
 before writing or editing any plotting code in this repo.
 
+**Never run `git commit` (or `git push`) in this repo, on any file, for any reason,
+even if asked to "commit" as part of a broader task.** The user always commits
+directly themselves. Editing/creating/regenerating files, running analysis, and
+staging (`git add`) are all fine — just never create the commit itself. If in doubt,
+stop short of committing and say so rather than asking for one-time confirmation.
+
 # Project Context & Guidelines
 
 ## Communication
