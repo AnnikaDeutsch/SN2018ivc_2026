@@ -480,32 +480,112 @@ explicitly deferred, do not start without being asked.
 
 ### Collaborator guidance 2026-09-03 — free N_H and a bremss+powerlaw combined fit
 
-Discussion with a collaborator raised two follow-ups to the first fitting round
-above. Not yet started.
+Done 2026-09-03. Discussion with a collaborator raised two follow-ups to the first
+fitting round above:
 
-- **Let N_H vary.** All 9 fits above froze N_H at the Galactic value
-  (2.6×10²⁰ cm⁻², see "Fit results" above). Collaborator suggestion: let N_H float
-  and see how that changes the fits. This is exactly the free-intrinsic-N_H idea
-  already flagged for 20306 specifically (its thermal models peg at the hard kT
-  boundary, possibly a sign of under-modeled absorption) — but the collaborator's
-  ask is broader, to try free N_H across the fits generally, not just 20306. Note
-  the original decision to freeze N_H was driven by counts budget (109–506
-  counts/epoch, already 2–3 free params) — worth checking per-epoch whether N_H is
-  actually constrained once free, especially for the low-count 29071+29072 epoch.
-- **Combined bremss + powerlaw model.** Try a 4th model, `tbabs*(bremss+powerlaw)` —
-  a nonthermal (synchrotron-like) continuum plus a thermal free-free component
-  together, rather than the 3 single-continuum models fit so far
-  (apec/powerlaw/bremss individually). Motivation: there may be contribution from
-  both mechanisms simultaneously (e.g. CSM-shock thermal emission plus a nonthermal
-  tail), which none of the single-component models can capture. The powerlaw
-  component specifically represents nonthermal synchrotron emission, which could
+- **Let N_H vary, but only for the 20306 epoch (~13 days post-explosion).** At the
+  user's direction, N_H (tbabs) was thawed for **20306 only**, for all 4 models
+  (apec, powerlaw, bremss, and the new bremss+powerlaw below); the other two epochs
+  (29071+29072, 31211+31996) keep N_H frozen at the Galactic value
+  (2.6×10²⁰ cm⁻²), matching the first round. Implemented in `fit_models.py` via a
+  per-epoch `_set_nh()` helper (`FREE_NH_EPOCH = "20306"`) shared by all 4 model
+  builders.
+- **Combined bremss + powerlaw model, `tbabs*(bremss+powerlaw)`.** Added as a 4th
+  model — a thermal free-free continuum plus a nonthermal power-law continuum fit
+  together, rather than the 3 single-continuum models from the first round. The
+  powerlaw component represents nonthermal synchrotron emission, which could
   originate from either a PWN (pulsar wind nebula, if the SN left behind a young
-  pulsar) or from CSM shock interaction (particle acceleration at the
-  forward/reverse shock) — the fit itself won't distinguish which origin, but it's
-  the physical motivation for including a nonthermal component alongside the
-  thermal one. This adds free params (kT + 2 norms, or kT + Γ + 2 norms if N_H is
-  also freed per above) — watch degeneracy/constraint quality especially for the
-  lower-count epochs.
+  pulsar) or CSM shock interaction (particle acceleration at the forward/reverse
+  shock) — the fit itself doesn't distinguish which, but it's the physical
+  motivation for the nonthermal component. Free: `brem1.kT`, `brem1.norm`,
+  `pl1.PhoIndex`, `pl1.norm` (+ `abs1.nH` for 20306 only, per above).
+
+**Fitting complication found and fixed: bremss+powerlaw is prone to local minima.**
+A single-start `levmar` fit for 31211+31996 converged to W-stat=53.2/28 with the
+power-law norm driven to ~0 (effectively degenerating to a poor bremss-only fit) —
+but Sherpa's `conf()` call (run afterward for error bars) stumbled onto a
+genuinely better minimum, W-stat=34.4/28, while searching, without the script
+capturing it (the row was built from `get_fit_results()` right after the initial
+`fit()`, before `conf()` ran and silently relocated the model to the better point —
+so the recorded params and the recorded confidence intervals were briefly out of
+sync with each other). Fixed by adding a **multi-start search** to
+`fit_models.py`: for `bremss_powerlaw` only, `levmar` is run from 9 starting points
+(`kT0` ∈ {1, 5, 15} keV × `PhoIndex0` ∈ {−1, 1, 3}), the lowest-statistic result is
+kept, and *that* is what gets refit-and-recorded (so `get_fit_results()`/`conf()`
+downstream operate on the true minimum). After the fix, 31211+31996 converges
+cleanly to W-stat=34.4/28 with no "New minimum statistic found" warning, and the
+other two epochs' bremss_powerlaw fits also improved slightly (20306: 38.5→31.9;
+29071+29072: 0.89→0.85), i.e. the single-start version had likely been missing the
+true minimum there too, just less dramatically.
+
+**Full results, all 12 fits (4 models × 3 epochs):**
+
+| Model | Epoch | W-stat/dof | rstat |
+|---|---|---|---|
+| apec | 20306 | 39.9/13 | 3.07 |
+| apec | 29071+29072 | 1.1/6 | 0.19 |
+| apec | 31211+31996 | 36.4/30 | 1.21 |
+| powerlaw | 20306 | 31.7/13 | 2.44 |
+| powerlaw | 29071+29072 | 1.0/6 | 0.17 |
+| powerlaw | 31211+31996 | 38.2/30 | 1.27 |
+| bremss | 20306 | 39.8/13 | 3.06 |
+| bremss | 29071+29072 | 1.2/6 | 0.20 |
+| bremss | 31211+31996 | 34.4/30 | 1.15 |
+| bremss_powerlaw | 20306 | 31.9/11 | 2.90 |
+| bremss_powerlaw | 29071+29072 | 0.8/4 | 0.21 |
+| bremss_powerlaw | 31211+31996 | 34.4/28 | 1.23 |
+
+**Interpretation:**
+- **20306, free N_H:** substantially improves both thermal fits versus the
+  frozen-N_H first round (apec rstat 7.7→3.07, bremss rstat ~7→3.06) — both still
+  peg at their hard kT bound (apec 64 keV, bremss 200 keV) and both still fail
+  Sherpa's rstat>3 guard for `conf()`, so still not formally acceptable fits, but
+  clearly less bad. Both prefer a large N_H (apec 1.82×10²² cm⁻², bremss
+  1.71×10²² cm⁻² — ~70× Galactic) to help fit the shape. **Powerlaw behaves
+  oppositely:** its free N_H is pushed to the pegged minimum (0), i.e. the
+  power-law fit wants *less* absorption than Galactic, not more — and remains the
+  best single-continuum fit for this epoch (rstat 2.44, up slightly from 2.27 in
+  the frozen-N_H round — statval itself barely moved, 31.8→31.7, so the rstat
+  increase is just the extra free parameter cutting dof by 1; freeing N_H bought
+  essentially no fit-quality improvement for powerlaw here, it just relocated N_H
+  to 0 without changing the fit). **bremss_powerlaw for 20306** finds a genuinely
+  different, non-pegged solution (kT=8.27 keV, Γ=0.10, N_H≈0.001×10²² ≈ 0, i.e.
+  also pushed toward zero absorption) — its thermal component no longer runs to
+  the hard boundary the way apec/bremss alone do, but its rstat (2.90) is still
+  worse than powerlaw alone (2.44), so **powerlaw alone remains the best-fitting
+  model for 20306** even after these changes.
+- **29071+29072:** all 4 models fit "fine" (rstat ≲ 0.2) but still don't
+  meaningfully constrain their shape parameters (huge or one-sided/unconstrained
+  errors) — unchanged conclusion from the first round; this epoch's 109 counts
+  just isn't enough to discriminate models regardless of which of these 4 is
+  tried.
+- **31211+31996 (best-constrained epoch): bremss_powerlaw ties bremss-alone as the
+  best fit** (W-stat 34.4 vs 34.4/34.35 — statistically indistinguishable), despite
+  bremss_powerlaw having 2 more free parameters (dof 28 vs 30). That the extra
+  power-law component buys essentially **zero** improvement in fit quality here is
+  itself informative: it means this epoch's residual structure (the ~2.9/6.7 keV
+  bumps flagged in the 2026-09-02 advisor guidance below) looks like **discrete
+  emission lines**, not a smooth added nonthermal continuum — consistent with
+  going the Gaussian-line route (next section) rather than the two-continuum
+  route for improving this epoch's fit. bremss_powerlaw's best-fit values here
+  (kT=8.12 keV, Γ=1.28) sit between the bremss-alone (kT=8.61 keV) and
+  powerlaw-alone (Γ=1.59) single-model results, as expected for a blend, but with
+  large, strongly correlated uncertainties on both (kT +3.6/−3.6, Γ unconstrained
+  on the upper side) — the two components are not well separated by the data,
+  another sign this model isn't earning its extra complexity for this epoch.
+- No formal model-comparison statistic (AIC/BIC/F-test) has been computed for any
+  of these comparisons — all of the above is goodness-of-fit (W-stat/rstat)
+  reasoning, not a formal statistical preference test.
+
+**Figures:** all 3 first-round notebooks (`xray_spectra_{apec,powerlaw,bremss}_fit.ipynb`)
+regenerated with the updated (free-N_H-for-20306) fits — each panel's annotation
+now shows the fitted N_H value for the 20306 panel only (the other two panels don't
+have N_H as a free parameter, so no N_H line is shown there). A new 4th notebook,
+`xray_spectra_bremss_powerlaw_fit.ipynb`, was added for the combined model, same
+1×3 chronological-panel + residuals-row layout and viridis per-epoch coloring as
+the other three. All 4 re-executed via `jupyter nbconvert --execute --inplace`
+under `18ivc_clean`. Outputs:
+`figures/xray_spectra_{apec,powerlaw,bremss,bremss_powerlaw}_fit.png/.pdf`.
 
 ### Advisor guidance 2026-09-02 — improving the final-epoch (31211+31996) fit
 
@@ -523,6 +603,23 @@ there. Advisor-directed procedure to improve wstat:
    the greatest improvement to wstat.
 
 Not yet started — documenting the plan per advisor meeting 2026-09-02.
+
+**Next step, scoped 2026-09-03 (not yet started):** add a Gaussian at the ~2.9 keV
+residual feature (visible in the power-law fit's residual panel, per the 2026-09-02
+visual confirmation above) to **3 of the 4 models — powerlaw, bremss, and
+bremss_powerlaw — for the 31211+31996 epoch only**. (apec is excluded: adding a
+line on top of an already-multi-line thermal plasma model is a different exercise
+than adding one to the continuum-only models, and wasn't asked for.) Only this one
+epoch gets the treatment — 20306 and 29071+29072 aren't included. Follow the
+3-step procedure above (identify energy via the data booklet, add
+`xsgaussian`/`zgauss` with centroid fixed at that energy, vary width/norm) for each
+of the 3 models separately, and compare the wstat improvement each gets from adding
+the line. Given the bremss_powerlaw finding just above (that model already ties
+bremss-alone with *no* wstat benefit from its extra nonthermal component at this
+epoch), this is a natural next test: if a single Gaussian line closes most of the
+gap for all 3 continuum choices, that's further evidence the residual structure is
+line emission rather than a missing continuum component, regardless of which
+continuum is chosen underneath it.
 
 ## Step 5 — Flux / luminosity conversion (not started)
 
@@ -584,13 +681,22 @@ Step 5 (flux/luminosity conversion) being done first to have a light curve to fi
 - Final-epoch (31211+31996) fit improvement — not yet started: identify thermal
   line residuals via the X-ray data booklet's emission-line chart, add a Gaussian
   per line with fixed centroid, vary width/norm to maximize wstat improvement (see
-  Step 4 "Advisor guidance 2026-09-02").
+  Step 4 "Advisor guidance 2026-09-02"). **Scoped 2026-09-03, not yet started:** add
+  a Gaussian at the ~2.9 keV feature to powerlaw, bremss, and bremss_powerlaw (not
+  apec) for the 31211+31996 epoch only, and compare the wstat improvement each
+  model gets — see Step 4 "Advisor guidance 2026-09-02 — improving the final-epoch
+  (31211+31996) fit" for the full scoping.
 - Residual panels for the fit-comparison figures — done 2026-09-02 (see Step 4
   "Advisor guidance 2026-09-02 — add residual panels: done").
-- Collaborator guidance 2026-09-03, not yet started: (1) let N_H vary (rather than
-  freezing at Galactic) and see how the fits change; (2) try a combined
-  `tbabs*(bremss+powerlaw)` model, since there may be both thermal and nonthermal
-  contribution — see Step 4 "Collaborator guidance 2026-09-03".
+- Collaborator guidance 2026-09-03 — done: (1) N_H freed for the 20306 epoch only
+  (frozen elsewhere), across all 4 models; (2) added a combined
+  `tbabs*(bremss+powerlaw)` 4th model. Found and fixed a local-minimum degeneracy
+  in the combined model (multi-start search now used for it). Key result: for
+  31211+31996 the combined model ties bremss-alone, meaning the extra nonthermal
+  component buys no fit improvement there — supports the residuals being discrete
+  emission lines (see the Gaussian-line plan above) rather than a missing
+  continuum component. All 4 fit-comparison figures regenerated. See Step 4
+  "Collaborator guidance 2026-09-03" for full results.
 - Light curve modeling with `redback-csm` (Step 6) — planned for once the X-ray
   light curve exists (after Step 5); not started, packages cloned locally but not
   yet set up.
