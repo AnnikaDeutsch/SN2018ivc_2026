@@ -478,6 +478,35 @@ Output: `figures/xray_spectra_{apec,powerlaw,bremss}_fit.png/.pdf` regenerated.
 **Not yet done:** flux/luminosity conversion (Step 5) from any of these fits —
 explicitly deferred, do not start without being asked.
 
+### Collaborator guidance 2026-09-03 — free N_H and a bremss+powerlaw combined fit
+
+Discussion with a collaborator raised two follow-ups to the first fitting round
+above. Not yet started.
+
+- **Let N_H vary.** All 9 fits above froze N_H at the Galactic value
+  (2.6×10²⁰ cm⁻², see "Fit results" above). Collaborator suggestion: let N_H float
+  and see how that changes the fits. This is exactly the free-intrinsic-N_H idea
+  already flagged for 20306 specifically (its thermal models peg at the hard kT
+  boundary, possibly a sign of under-modeled absorption) — but the collaborator's
+  ask is broader, to try free N_H across the fits generally, not just 20306. Note
+  the original decision to freeze N_H was driven by counts budget (109–506
+  counts/epoch, already 2–3 free params) — worth checking per-epoch whether N_H is
+  actually constrained once free, especially for the low-count 29071+29072 epoch.
+- **Combined bremss + powerlaw model.** Try a 4th model, `tbabs*(bremss+powerlaw)` —
+  a nonthermal (synchrotron-like) continuum plus a thermal free-free component
+  together, rather than the 3 single-continuum models fit so far
+  (apec/powerlaw/bremss individually). Motivation: there may be contribution from
+  both mechanisms simultaneously (e.g. CSM-shock thermal emission plus a nonthermal
+  tail), which none of the single-component models can capture. The powerlaw
+  component specifically represents nonthermal synchrotron emission, which could
+  originate from either a PWN (pulsar wind nebula, if the SN left behind a young
+  pulsar) or from CSM shock interaction (particle acceleration at the
+  forward/reverse shock) — the fit itself won't distinguish which origin, but it's
+  the physical motivation for including a nonthermal component alongside the
+  thermal one. This adds free params (kT + 2 norms, or kT + Γ + 2 norms if N_H is
+  also freed per above) — watch degeneracy/constraint quality especially for the
+  lower-count epochs.
+
 ### Advisor guidance 2026-09-02 — improving the final-epoch (31211+31996) fit
 
 The final epoch (31211+31996, ~2550 days post-explosion, best-constrained at 506
@@ -519,6 +548,24 @@ host (NGC 1068, z = 0.003793 — see [[project_sn2018ivc]] memory).
 
 Not yet started — documenting the plan per advisor meeting 2026-09-02.
 
+## Step 6 — Light curve modeling (`redback-csm`), not started
+
+Once the X-ray light curve is constructed (fluxes/luminosities per epoch from Step
+5), light curve modeling will be done with
+[`redback-csm`](https://github.com/nikhil-sarin/redback_csm) (Sarin & Hirai 2026,
+arXiv:2605.19571) — Fortran-based CSM-interaction models plugged into the
+[`redback`](https://github.com/nikhil-sarin/redback) transient-modeling/Bayesian
+inference package (Sarin et al. 2024, arXiv:2308.12806). Both packages are cloned
+locally at `redback/` and `redback-csm/` (untracked in this repo as of 2026-09-03 —
+not yet added under version control or set up in a conda env). `redback-csm` model
+names follow `{outer_CSM}_{inner_ejecta}` (outer = older progenitor-laid-down CSM
+density profile, inner = the more recent transient ejecta profile); once installed,
+its models register into redback's model library and are used for inference the same
+way as redback's built-in models.
+
+Not yet started — env setup, model selection, and fitting all still to do. Depends on
+Step 5 (flux/luminosity conversion) being done first to have a light curve to fit.
+
 ## Open items / TODO
 
 - First round of fitting is done: 3 models (apec/powerlaw/bremss) × 3 epochs, wstat,
@@ -540,3 +587,10 @@ Not yet started — documenting the plan per advisor meeting 2026-09-02.
   Step 4 "Advisor guidance 2026-09-02").
 - Residual panels for the fit-comparison figures — done 2026-09-02 (see Step 4
   "Advisor guidance 2026-09-02 — add residual panels: done").
+- Collaborator guidance 2026-09-03, not yet started: (1) let N_H vary (rather than
+  freezing at Galactic) and see how the fits change; (2) try a combined
+  `tbabs*(bremss+powerlaw)` model, since there may be both thermal and nonthermal
+  contribution — see Step 4 "Collaborator guidance 2026-09-03".
+- Light curve modeling with `redback-csm` (Step 6) — planned for once the X-ray
+  light curve exists (after Step 5); not started, packages cloned locally but not
+  yet set up.
