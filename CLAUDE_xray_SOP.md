@@ -621,6 +621,110 @@ gap for all 3 continuum choices, that's further evidence the residual structure 
 line emission rather than a missing continuum component, regardless of which
 continuum is chosen underneath it.
 
+**Done 2026-09-03 — Gaussian component added, with scope changed at the user's
+request from the plan above:** no X-ray data booklet species identification, and
+the ~6.7 keV bump was dropped entirely (not visible in the residuals at
+`group_counts(15)`, so presumably not significant). Instead of fixing the
+centroid at a booklet-identified energy, the Gaussian's energy, width (`Sigma`),
+and norm were all left free (seeded near 2.9 keV), so the fit finds its own
+best-fit line energy — done as a separate variant alongside a fixed-at-2.9-keV
+comparison run, both for the same 3 models (powerlaw, bremss, bremss_powerlaw) on
+the 31211+31996 epoch only. Implementation:
+`data/Chandra/spectral_fitting/fit_models_gauss.py` (run under `ciao-4.17`),
+built on a small refactor of `fit_models.py` (its per-model-per-epoch fitting body
+extracted into a shared `fit_one()` helper, and `BREMSS_POWERLAW_STARTS` changed
+from `(kT0, gamma0)` tuples to generic kwargs dicts) so the new script can reuse
+the exact same builders, epoch paths, and multi-start machinery rather than
+duplicating them — verified bit-identical to the pre-refactor output on the
+original 12 fits before building on top of it.
+
+**Two robustness problems found and fixed while doing this fit (both by empirical
+multi-start scans, not assumed):**
+
+1. **Local minima in (LineE, Sigma) jointly, not just LineE.** An initial
+   multi-start that varied only the Gaussian's seed energy (Sigma always seeded at
+   0.1 keV) missed genuinely deeper minima only reachable from specific
+   (LineE0, Sigma0) *combinations* — e.g. bremss_powerlaw_gauss's true best
+   free-centroid minimum (wstat=25.19) was invisible to a LineE-only scan and only
+   turned up once Sigma0 was also varied. Fixed by multi-starting over the full
+   (LineE0 × Sigma0) grid — `LINE_E_STARTS = [1.0, 1.9, 2.9, 4.5, 6.0, 6.7]` ×
+   `SIGMA_STARTS` — for the free-centroid case, and over `SIGMA_STARTS` alone
+   (LineE frozen at 2.9) for the fixed case. This is the same class of problem as
+   the bremss_powerlaw local-minimum issue documented above, just in a different
+   parameter pair.
+2. **Unresolvably narrow "lines" fitting single-bin noise.** Without a width
+   floor, the deepest minima for bremss_gauss (fixed-centroid) and
+   bremss_powerlaw_gauss (free-centroid) converged to Sigma ~ 0.001–0.02 keV — far
+   narrower than Chandra ACIS's actual energy resolution (FWHM ≈ 130 eV at these
+   energies → Sigma ≈ 0.055 keV via FWHM/2.355) — i.e. the fit was using an
+   essentially infinitely-narrow spike to absorb one noisy bin's excess counts,
+   not modeling a real, instrument-resolvable line. Fixed per user direction:
+   `gau1.Sigma.min = 0.055` (keV) imposed for every fit, so the optimizer
+   physically cannot converge to a sub-resolution width — any wstat improvement
+   that survives this floor reflects a real feature, not overfitting.
+
+**Full results, both variants, 31211+31996 only** (`fits/fit_summary_gauss.csv`
+free-centroid, `fits/fit_summary_gauss_fixed2p9.csv` fixed-at-2.9-keV):
+
+| Model | Centroid | W-stat/dof | ΔW-stat vs. no-gauss | LineE | Sigma | Verdict |
+|---|---|---|---|---|---|---|
+| powerlaw | free | 27.80/27 | 10.40 | 1.73 keV | 0.86 keV (broad) | Not a line — broad, off-target, more like continuum curvature |
+| powerlaw | fixed @2.9 | 38.19/28 | 0.01 | 2.9 (frozen) | 12.99 keV (pegged near max) | No improvement at all — Gaussian spreads out to contribute nothing |
+| bremss | free | 24.85/27 | 9.50 | 2.957±0.032 keV | 0.055 keV (resolution-limited) | **Significant, narrow line right at the expected energy** |
+| bremss | fixed @2.9 | 27.95/28 | 6.40 | 2.9 (frozen) | 0.055 keV (resolution-limited) | Confirms the free-centroid result |
+| bremss_powerlaw | free | 25.03/25 | 9.41 | 2.958±0.034 keV | 0.055 keV (resolution-limited) | Same narrow line, consistent across continuum choice |
+| bremss_powerlaw | fixed @2.9 | 28.15/26 | 6.29 | 2.9 (frozen) | 0.055 keV (resolution-limited) | Confirms the free-centroid result |
+
+**Interpretation:** `powerlaw` gains nothing physically meaningful from a Gaussian
+at or near 2.9 keV — its best free-centroid minimum is broad and drifts to
+~1.7 keV (continuum-shape compensation, not a line), and forcing the centroid to
+2.9 keV finds essentially zero improvement. `bremss` and `bremss_powerlaw` both
+show a **significant, narrow, resolution-limited line at ~2.96 keV** (free
+centroid) that's fully consistent with the fixed-at-2.9-keV result and with each
+other — the fitted Sigma lands exactly at the 0.055 keV instrumental floor in
+every one of these 4 fits, meaning the true line width is at or below what
+Chandra can resolve, not that the fit is cheating with an artificially narrow
+spike (that possibility was specifically what the resolution floor was added to
+rule out). Line normalization is nonzero at ~3σ in the free-centroid fits
+(`gau1.norm` vs. its `conf()` lower bound). ΔW-stat of ~9-10 for 3 extra free
+parameters (free centroid) is suggestive but not highly significant on its own
+(roughly 2-2.5σ via Wilks' theorem) — worth keeping in mind before over-claiming a
+firm detection, though the cross-model and free-vs-fixed consistency is
+reassuring.
+
+Figure: `figure_notebooks/xray_spectra_31211_31996_gauss_fit.ipynb` →
+`figures/xray_spectra_31211_31996_gauss_fit.png/.pdf` — 3 panels (powerlaw,
+bremss, bremss_powerlaw), single epoch, data + no-gauss (dashed) + free-centroid
+gauss (solid) curves, residuals row below using the free-centroid fit's residuals.
+Colors: single epoch color (viridis x=0.100, same as the other 31211+31996 panels
+project-wide) for data, two `darken_color` shades to distinguish the no-gauss vs.
+with-gauss curves (matching `CLAUDE_plotting.md`'s no-arbitrary-color rule) rather
+than linestyle-only or an unrelated color. Visually confirms the fit table: a
+clear narrow bump at ~2.9-3 keV in the solid curve for the bremss/bremss_powerlaw
+panels, and near-total overlap of the two curves in the powerlaw panel.
+
+**Not done:** no formal significance test beyond the ΔW-stat/Wilks'-theorem
+estimate above (e.g. a proper simulation-based null distribution for the line
+norm). A Protassov et al. (2002)-style Monte Carlo significance test (parametric
+bootstrap: simulate from the best-fit bremss-only model, refit null vs.
+bremss+gauss on each fake spectrum, compare the real ΔW-stat=9.50 against that
+null distribution — the theoretically correct approach here, since the line
+energy is an unidentified-under-the-null nuisance parameter that breaks the
+Wilks'-theorem chi2 assumption) was started 2026-09-04
+(`data/Chandra/spectral_fitting/gauss_significance_test.py`) but **deprioritized
+by the user before completion** — not resumed. If revisited, the script and
+method are ready to rerun.
+
+**Model choice for this epoch, decided 2026-09-04: bremss+gauss (free centroid)**
+adopted going forward for 31211+31996, without waiting on the formal significance
+test above — kT=8.61 keV continuum, line at ~2.96 keV, W/dof=24.85/27. Chosen over
+bremss_powerlaw_gauss (statistically near-identical, W/dof=25.03/25) since the
+extra power-law component isn't earning its keep here (see the 2026-09-03
+collaborator-guidance finding above that bremss_powerlaw ties bremss-alone at this
+epoch), and over plain bremss/powerlaw since the line addition gives a real
+W-stat improvement. This is the model to carry forward into Step 5
+(flux/luminosity) for this epoch once that step is started.
+
 ## Step 5 — Flux / luminosity conversion (not started)
 
 Not yet done. Depends on Step 4 fit results plus the adopted distance/redshift to the
@@ -678,14 +782,17 @@ Step 5 (flux/luminosity conversion) being done first to have a light curve to fi
   2026-09-02): best-fitting model per epoch, via XSPEC `lum` or PIMMS, with a
   single-epoch cross-model sanity check first to confirm luminosity is
   model-independent.
-- Final-epoch (31211+31996) fit improvement — not yet started: identify thermal
-  line residuals via the X-ray data booklet's emission-line chart, add a Gaussian
-  per line with fixed centroid, vary width/norm to maximize wstat improvement (see
-  Step 4 "Advisor guidance 2026-09-02"). **Scoped 2026-09-03, not yet started:** add
-  a Gaussian at the ~2.9 keV feature to powerlaw, bremss, and bremss_powerlaw (not
-  apec) for the 31211+31996 epoch only, and compare the wstat improvement each
-  model gets — see Step 4 "Advisor guidance 2026-09-02 — improving the final-epoch
-  (31211+31996) fit" for the full scoping.
+- Final-epoch (31211+31996) fit improvement — **done 2026-09-03**: added a
+  Gaussian (free-centroid, and a fixed-at-2.9-keV comparison) to powerlaw, bremss,
+  and bremss_powerlaw (not apec) for the 31211+31996 epoch only. Key result:
+  bremss and bremss_powerlaw both show a significant, narrow, resolution-limited
+  line at ~2.96 keV (ΔW-stat ~9-10 for the free-centroid fit); powerlaw shows no
+  real improvement. Two robustness fixes were needed along the way — a 2D
+  (LineE × Sigma) multi-start to avoid local minima, and an ACIS-resolution floor
+  on Sigma (0.055 keV) to rule out the fit exploiting single-bin noise with an
+  unresolvably narrow spike. See Step 4 "Done 2026-09-03 — Gaussian component
+  added" for the full table, caveats, and figure reference. No formal significance
+  test beyond ΔW-stat/Wilks'-theorem has been done yet.
 - Residual panels for the fit-comparison figures — done 2026-09-02 (see Step 4
   "Advisor guidance 2026-09-02 — add residual panels: done").
 - Collaborator guidance 2026-09-03 — done: (1) N_H freed for the 20306 epoch only
