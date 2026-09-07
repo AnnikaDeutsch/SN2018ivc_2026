@@ -725,10 +725,10 @@ epoch), and over plain bremss/powerlaw since the line addition gives a real
 W-stat improvement. This is the model to carry forward into Step 5
 (flux/luminosity) for this epoch once that step is started.
 
-## Step 5 — Flux / luminosity conversion (not started)
+## Step 5 — Flux / luminosity conversion (done 2026-09-04)
 
-Not yet done. Depends on Step 4 fit results plus the adopted distance/redshift to the
-host (NGC 1068, z = 0.003793 — see [[project_sn2018ivc]] memory).
+Depends on Step 4 fit results plus the adopted distance/redshift to the host
+(NGC 1068, z = 0.003793 — see [[project_sn2018ivc]] memory).
 
 ### Methodology (advisor guidance 2026-09-02)
 
@@ -747,7 +747,97 @@ host (NGC 1068, z = 0.003793 — see [[project_sn2018ivc]] memory).
 - **Final numbers:** once the sanity check is done, use the best-fitting model per
   epoch (not an arbitrary/uniform choice) for the adopted luminosity values.
 
-Not yet started — documenting the plan per advisor meeting 2026-09-02.
+### Done 2026-09-04 — implementation and results
+
+Per-epoch adopted models come from the user's `xray_epoch_spec_models.xlsx`
+(2026-09-04) — see the "Best-fit model per epoch" figure below and the model-choice
+summary earlier in this Step: **20306** → powerlaw (N_H frozen at Galactic);
+**29071+29072** → bremss_powerlaw; **31211+31996** → bremss+free-centroid gauss.
+
+**Tooling:** Sherpa has no direct `lum`-command equivalent, so used
+`sherpa.astro.ui.sample_flux` instead — the modern, more rigorous analog (same
+underlying physics: integrate flux over a band, convert via distance), with
+parameter-covariance Monte Carlo sampling (`num=2000`) for 1-sigma bounds rather
+than `lum`'s simpler error propagation. `modelcomponent` passed to `sample_flux`
+excludes the `tbabs` absorber (just the continuum(+line) piece), giving the
+**unabsorbed** (intrinsic) flux directly. Band: **0.3–8 keV observer-frame**,
+matching the `notice()` range used throughout this project's X-ray fitting (not
+`redback-csm`'s 0.3–10 keV default — that model's band edges are adjustable at
+Step 6 fit time, so this choice isn't locked in for later).
+
+**Distance: 10.72 Mpc** (direct Cepheid P-L distance to NGC 1068, 38 candidates,
+arXiv:2602.22407, D=10.72±0.52 Mpc; cross-validated by an independent TRGB
+distance of 11.14±0.54 Mpc) — **not** the naive Hubble-flow redshift distance
+(~16.2 Mpc at z=0.003793 with H0=70), which overstates the true distance because
+NGC 1068 has a significant peculiar velocity. This is the same distance already
+adopted for the radio luminosity comparison (`data/sn_reference_crosswalk.xlsx`,
+"Figure 8 References" sheet, decision recorded 2026-08-27) — using it here keeps
+X-ray and radio luminosities on a consistent footing. L = 4πD_L²F; the ±4.9%
+distance uncertainty is a **global multiplicative systematic (±9.7% in L)**,
+reported separately, not folded into the per-epoch statistical errors below.
+
+**Model-independence sanity check (31211+31996, the best-constrained epoch):**
+computed luminosity from 3 models — the adopted bremss_gauss, plain bremss, and
+bremss_powerlaw:
+
+| Model | Luminosity (erg/s) |
+|---|---|
+| bremss_gauss (adopted) | 3.838×10³⁹ |
+| bremss | 3.886×10³⁹ |
+| bremss_powerlaw | 6.747×10³⁹ |
+
+bremss_gauss and bremss agree to **~1.2%** — exactly the model-independence the
+advisor guidance expects, and it directly validates the adopted number (adding a
+narrow line barely changes the broadband integrated flux, as expected).
+**bremss_powerlaw diverges by ~76%**, but this is not a failure of the
+model-independence expectation in general — it's a symptom of the parameter
+degeneracy in that model already flagged in the 2026-09-03 collaborator-guidance
+section above (the thermal and nonthermal components trade off against each other
+with large, correlated, partly-unconstrained uncertainties at this epoch, so a
+combined-fit component that "ties" bremss-alone in fit quality can still carry a
+very different, poorly-constrained integrated flux). This is itself a useful
+confirmation that bremss_powerlaw would have been a poor choice for flux
+extraction at this epoch even though it wasn't the epoch's adopted model.
+Full comparison: `fits/xray_luminosity_sanity_check_31211_31996.csv`.
+
+**Final adopted numbers** (`data/Chandra/spectral_fitting/xray_flux_luminosity.py`,
+run under `ciao-4.17`; output `fits/xray_flux_luminosity.csv`):
+
+| Epoch | Phase (days) | Model | Unabsorbed flux (0.3–8 keV, erg/s/cm²) | Luminosity (erg/s) |
+|---|---|---|---|---|
+| 20306 | ~13 | powerlaw (N_H frozen) | 5.64×10⁻¹³ $^{+1.63\times10^{-13}}_{-1.29\times10^{-13}}$ | 7.75×10³⁹ $^{+2.25\times10^{39}}_{-1.78\times10^{39}}$ |
+| 29071+29072 | ~1869 | bremss_powerlaw | 4.02×10⁻¹³ $^{+8.08\times10^{-12}}_{-2.69\times10^{-13}}$ | 5.53×10³⁹ $^{+1.11\times10^{41}}_{-3.70\times10^{39}}$ |
+| 31211+31996 | ~2550 | bremss+gauss | 2.79×10⁻¹³ $^{+1.81\times10^{-14}}_{-2.10\times10^{-14}}$ | 3.84×10³⁹ $^{+2.49\times10^{38}}_{-2.89\times10^{38}}$ |
+
+(All errors above are flux-statistical only — add the ±9.7% distance systematic
+separately when quoting a final number.) **29071+29072's luminosity error is huge
+and one-sided** (+1.11×10⁴¹, i.e. ~20× the median) — this is the same
+"bremss_powerlaw doesn't meaningfully constrain its shape parameters at this
+epoch" finding from Step 4 showing up again here, not a new problem; the median
+is still a reasonable point estimate but the interval should not be over-read at
+this epoch. 20306 and 31211+31996 have much better-behaved, roughly symmetric
+errors.
+
+**Implementation notes:**
+- `ciao-4.17` has no `astropy` (unlike `18ivc_clean`), so `DATE-OBS` → phase-days
+  used a small hand-rolled MJD conversion (`datetime` stdlib) reading the header
+  directly off the already-loaded Sherpa PHA object (`get_data(1).header`) instead
+  of `astropy.time.Time`.
+- Refit each epoch's adopted model fresh (with the same multi-start machinery as
+  the production fits — `BREMSS_POWERLAW_STARTS` for 29071+29072,
+  `LINE_E_STARTS × SIGMA_STARTS` for 31211+31996) rather than trying to restore
+  fitted state from CSV, since `sample_flux` needs a live Sherpa fit/covariance
+  context, not just best-fit values.
+- **Bug found and fixed while writing this script:** `fit_models_gauss.py`'s
+  fitting calls were not guarded by `if __name__ == "__main__":`, so importing it
+  just to reuse its `LINE_E_STARTS`/`SIGMA_STARTS`/`SIGMA_FLOOR_KEV` constants
+  silently re-ran its entire 6-fit batch as an import side effect. Fixed by
+  wrapping those calls the same way `fit_models.py` already was (see Step 4's
+  "Done 2026-09-03 — Gaussian component added" for that earlier fix).
+
+Not done: no attempt yet to fold the ±9.7% distance systematic into a single
+combined error bar — kept separate per the table note above. Revisit if Step 6
+light-curve fitting needs one combined number per epoch.
 
 ## Step 6 — Light curve modeling (`redback-csm`), not started
 
@@ -777,11 +867,15 @@ Step 5 (flux/luminosity conversion) being done first to have a light curve to fi
   a 2nd absorber) for that epoch specifically; (2) no formal model-comparison
   statistic (AIC/BIC or similar) computed yet, so "which model is best" per epoch is
   only informal so far.
-- Flux/luminosity conversion (Step 5) — explicitly deferred by the user; do not
-  start without being asked. Methodology now documented (advisor guidance
-  2026-09-02): best-fitting model per epoch, via XSPEC `lum` or PIMMS, with a
-  single-epoch cross-model sanity check first to confirm luminosity is
-  model-independent.
+- Flux/luminosity conversion (Step 5) — **done 2026-09-04**: per-epoch adopted
+  models from the user's `xray_epoch_spec_models.xlsx`, unabsorbed flux via
+  Sherpa's `sample_flux` (0.3-8 keV), luminosity via D=10.72 Mpc (Cepheid,
+  matching the radio-side distance). Sanity check confirmed bremss_gauss agrees
+  with bremss-alone to ~1.2% at 31211+31996 (validates the adopted number);
+  bremss_powerlaw diverged ~76% there due to its known parameter degeneracy, not
+  a model-independence failure. Final table: `fits/xray_flux_luminosity.csv`. See
+  Step 5 "Done 2026-09-04" for full results and caveats (29071+29072's error bar
+  is huge and one-sided, reflecting that epoch's poor shape constraints).
 - Final-epoch (31211+31996) fit improvement — **done 2026-09-03**: added a
   Gaussian (free-centroid, and a fixed-at-2.9-keV comparison) to powerlaw, bremss,
   and bremss_powerlaw (not apec) for the 31211+31996 epoch only. Key result:
