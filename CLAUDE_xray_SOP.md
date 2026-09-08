@@ -749,6 +749,13 @@ Depends on Step 4 fit results plus the adopted distance/redshift to the host
 
 ### Done 2026-09-04 — implementation and results
 
+**Superseded 2026-09-07/08 — see the update further below.** Tool changed from
+Sherpa's `sample_flux` to PyXspec's `lum`/`flux`, distance changed from the
+Cepheid 10.72 Mpc to Maeda et al. 2023b's 10 (+1.8/-1.5) Mpc, and band changed
+from 0.3-8 keV to 0.3-10 keV. The numbers in this subsection are kept for
+history but are no longer the adopted ones — use the "Redone 2026-09-07/08"
+subsection's table instead.
+
 Per-epoch adopted models come from the user's `xray_epoch_spec_models.xlsx`
 (2026-09-04) — see the "Best-fit model per epoch" figure below and the model-choice
 summary earlier in this Step: **20306** → powerlaw (N_H frozen at Galactic);
@@ -839,6 +846,168 @@ Not done: no attempt yet to fold the ±9.7% distance systematic into a single
 combined error bar — kept separate per the table note above. Revisit if Step 6
 light-curve fitting needs one combined number per epoch.
 
+### Redone 2026-09-07/08 — PyXspec `lum`, Maeda et al. 2023b distance, 0.3-10 keV band
+
+Motivated by two things: (1) an explicit request to use XSPEC's own `lum` command
+(via the PyXspec build done this session — see the PyXspec build notes at the top
+of this file's session history / the environment setup below) instead of Sherpa's
+`sample_flux`; (2) adopting Maeda et al. 2023b's distance, D = 10 (+1.8/-1.5) Mpc,
+in place of the Cepheid 10.72 Mpc used in the 2026-09-04 round.
+
+**Tooling:** each epoch's adopted model refit directly in PyXspec (not just
+Sherpa's best-fit values carried over frozen), seeded from the Sherpa best-fit
+values, so XSPEC's own covariance matrix exists for `lum`/`flux`'s Monte-Carlo
+error propagation. Fit statistic: `cstat` — this HEASOFT build has no separate
+`wstat` name; `cstat` auto-applies the W-statistic whenever a background file is
+loaded (same underlying calculation Sherpa calls `wstat`). Background loaded, not
+subtracted, matching the Step 4 convention. Grouping: 20306 reuses its existing
+`NUM_CTS`=15 grouped file; the two merged spectra (29071+29072, 31211+31996) were
+regrouped via the `grppha` FTOOL's `GROUP MIN 15` (not bit-identical to Sherpa's
+`group_counts(15)` — grppha groups the full channel range before any energy
+notice, Sherpa notices then groups — but refit statistics land close to the
+original Sherpa fits: 29071+29072 0.80/2 vs. 0.85/4, 31211+31996 24.03/25 vs.
+24.85/27, both good matches; 20306 20.43/12 vs. 31.8/14, a bigger absolute shift
+but the same qualitative story, powerlaw still the least-bad fit there).
+Unabsorbed flux/lum: `TBabs.nH` temporarily zeroed (then restored), same
+"exclude the absorber" definition Sherpa's `sample_flux(modelcomponent=...)` used.
+
+**Distance — "effective H0" trick:** `lum`'s luminosity distance comes from
+redshift + cosmology (H0, q0, Lambda0 via `Xset.cosmo`), not a directly specified
+Mpc value. NGC 1068's actual z=0.003793 implies a naive Hubble-flow distance of
+~16.2-16.9 Mpc (H0=70-67.4), but NGC 1068 has a large peculiar velocity, so the
+true distance is much closer (Maeda et al. 2023b: 10 Mpc). Solved for an adjusted
+H0 (H0_eff = c·z/D, exact to <0.5% at this tiny z, verified numerically against
+XSPEC's own cosmological D_L before use) that makes `lum`'s internal D_L equal the
+target distance: H0_eff=113.71 (central, D=10 Mpc), 96.37 (D=11.8 Mpc, +1.8
+bound), 133.78 (D=8.5 Mpc, −1.5 bound). Flux-statistical error (MC at the central
+H0) and the distance-systematic bracket (point estimate at the H0 bounds) computed
+separately, then combined in quadrature per side when plotting (see below).
+
+**Discrepancy check against an independent analysis (2026-09-07/08):** the
+resulting luminosities were noticeably (~3-4x) lower than an independent X-ray
+light curve the user's advisor (Poonam Chandra) made
+(`figures/Poonam_xray_LC.png`, labeled 0.3-10 keV). Diagnosed via two isolated
+tests (holding everything else fixed, evaluating at the same naive D~16.24 Mpc,
+H0=70, to separate the two effects cleanly):
+
+1. **Distance:** rescaling the (already-computed, band-independent) 0.3-8 keV
+   fluxes to the naive D~16.24 Mpc closed most of the gap — residual ratio to
+   Poonam's plot values dropped from ~3-4x to 1.16-1.52x (largest residual for
+   20306, the hardest/flattest-spectrum epoch).
+2. **Band:** refitting at 0.3-10 keV (vs. this project's earlier 0.3-8 keV) and
+   evaluating at the same naive distance closed the remainder — residual ratio
+   0.93-1.08x, i.e. full agreement with the advisor's numbers to within
+   plot-read-off precision.
+
+Together, these confirm the two analyses are consistent once distance and
+bandpass are matched — the advisor's numbers were not independently wrong, this
+project was just using a smaller, physically-motivated distance and a narrower
+band than she did.
+
+**Decision: adopt 0.3-10 keV going forward** (matches Chandra ACIS's full nominal
+calibrated bandpass, `redback-csm`'s default, and reconciles with the advisor's
+analysis), superseding the 0.3-8 keV band used earlier in this Step. **This does
+not require re-running Step 4's spectral fits**: none of the 3 epochs have any
+source counts above ~6.4-7.2 keV once grouped at 15 counts/bin (`QUALITY==0`
+channels stop there), so widening the notice band to 10 keV adds zero new
+constraining data — confirmed empirically (refit statistic/dof at 0.3-10 keV is
+numerically identical to the 0.3-8 keV refit, epoch by epoch). **Caveat:** the
+8-10 keV contribution to flux/luminosity is therefore pure model extrapolation of
+the best-fit continuum past the last channel any data actually constrains, not a
+directly measured excess — legitimate standard use of `flux`/`lumin` (they
+integrate the best-fit model over whatever band is requested, independent of the
+noticed data range), but worth remembering before treating these numbers as
+purely data-driven, especially for 20306 (hardest spectrum, so the largest
+extrapolated fraction of its total band flux). Response coverage checked and
+confirmed adequate (RMF calibrated to 11 keV in all 3 epochs) before trusting the
+wider band.
+
+Scripts: `data/Chandra/spectral_fitting/xray_flux_luminosity_pyxspec.py` (0.3-8
+keV version) → superseded by
+`xray_flux_luminosity_pyxspec_0p3_10kev.py` (adopted, 0.3-10 keV). Output:
+`fits/xray_flux_luminosity_pyxspec_0p3_10kev.csv`.
+
+**Adopted numbers (0.3-10 keV, D=10 Mpc central, Maeda et al. 2023b):**
+
+| Epoch | Phase (days) | Model | Unabsorbed flux (0.3-10 keV, erg/s/cm²) | L central (erg/s) | L stat range | L distance-systematic range |
+|---|---|---|---|---|---|---|
+| 20306 | ~12.7 | powerlaw (N_H frozen) | 8.988×10⁻¹³ | 1.072×10⁴⁰ | +1.16×10³⁹/−1.40×10³⁹ | 7.74×10³⁹–1.49×10⁴⁰ |
+| 29071+29072 | ~1868.7 | bremss_powerlaw | 1.539×10⁻¹³ | 1.841×10³⁹ | +1.20×10⁴²/−8.19×10³⁸ (degenerate) | 1.33×10³⁹–2.56×10³⁹ |
+| 31211+31996 | ~2550.3 | bremss+gauss | 3.068×10⁻¹³ | 3.681×10³⁹ | +1.59×10³⁸/−3.14×10³⁸ | 2.66×10³⁹–5.13×10³⁹ |
+
+**29071+29072's statistical error remains degenerate/one-sided** (huge upper
+bound, ~800x the median) — the same known `bremss_powerlaw` parameter degeneracy
+flagged earlier in this Step (thermal/nonthermal components trade off against
+each other at only 109 counts), unaffected by the tooling, distance, or band
+change. Not investigated further, per the user's explicit request (2026-09-07)
+to defer that.
+
+**Plotted error bars combine the two error sources in quadrature, per side** —
+previously (2026-09-04 round) the distance systematic was reported separately
+and not plotted at all; now: `lum_err_total = sqrt(lum_err_stat² +
+lum_err_dist²)`, independently for the +/- sides. For 29071+29072 specifically,
+quadrature-combining also cleanly absorbs the sign oddity in its raw stat errlo
+(a negative value, since its degenerate MC's "low" bound landed above the central
+value) without needing a special case.
+
+**Figure:** `figure_notebooks/xray_luminosity_light_curve.ipynb` →
+`figures/xray_luminosity_light_curve.png/.pdf`, updated 2026-09-08 for the new
+tool/distance/band/combined-error convention.
+
+### Redone 2026-09-08 — 29071+29072 switched from bremss+powerlaw to powerlaw alone
+
+Motivated by that epoch's persistently degenerate, huge one-sided luminosity
+error (see immediately above): `bremss_powerlaw`'s 2 extra free parameters
+(relative to a single continuum) trade off almost freely against each other at
+only 109 counts, so while the fit itself is fine (W-stat/dof ≈ 0.8/4), the
+flux/luminosity built from it inherits that degeneracy. All 4 models explored
+at this epoch in Step 4's first round fit statistically indistinguishably well
+(rstat ≲ 0.2 for all of apec/powerlaw/bremss/bremss_powerlaw) — so switching to
+`powerlaw` alone isn't a worse fit, just a simpler, already well-constrained one
+(Γ = 1.33 ± 0.19, ~20% norm error in the original Step 4 fit) that trades away
+the (unconstrained) nonthermal component for a usable error bar. Implemented by
+changing `setup_29071_29072()` in
+`data/Chandra/spectral_fitting/xray_flux_luminosity_pyxspec_0p3_10kev.py` from
+`TBabs*(bremss+powerlaw)` to `TBabs*powerlaw`, seeded from the original Step 4
+powerlaw best-fit values (Γ=1.335, norm=1.404×10⁻⁵), N_H still frozen at
+Galactic. Refit: W-stat/dof = 0.85/4 (vs. bremss_powerlaw's 0.80/2 — comparable,
+2 more dof since powerlaw has 2 fewer free parameters).
+
+**Effect on the error bar — as expected, large:**
+
+| | bremss_powerlaw (previous) | powerlaw alone (adopted 2026-09-08) |
+|---|---|---|
+| L central (erg/s) | 1.841×10³⁹ | 1.676×10³⁹ |
+| L stat error | +1.20×10⁴²/−8.19×10³⁸ (degenerate) | +2.08×10³⁸/−2.14×10³⁸ (~13%) |
+| L distance-systematic | 1.33×10³⁹–2.56×10³⁹ | 1.21×10³⁹–2.33×10³⁹ |
+
+The central value barely moved (~9%, within the models' mutual consistency),
+but the statistical error collapsed from ~800x the median (effectively
+uninformative) to a normal, well-behaved ~13% — confirming the error was a
+`bremss_powerlaw`-specific parameter-degeneracy artifact, not a property of the
+data itself.
+
+**Adopted models as of 2026-09-08:** 20306 → powerlaw (N_H frozen); 29071+29072
+→ **powerlaw (N_H frozen)** (was bremss_powerlaw); 31211+31996 → bremss+gauss
+(unchanged). `xray_epoch_spec_models.xlsx` updated to match.
+
+**Updated adopted numbers (0.3-10 keV, D=10 Mpc central, Maeda et al. 2023b):**
+
+| Epoch | Phase (days) | Model | Unabsorbed flux (0.3-10 keV, erg/s/cm²) | L central (erg/s) | L stat range | L distance-systematic range |
+|---|---|---|---|---|---|---|
+| 20306 | ~12.7 | powerlaw (N_H frozen) | 8.988×10⁻¹³ | 1.072×10⁴⁰ | +1.10×10³⁹/−1.31×10³⁹ | 7.74×10³⁹–1.49×10⁴⁰ |
+| 29071+29072 | ~1868.7 | powerlaw (N_H frozen) | 1.399×10⁻¹³ | 1.676×10³⁹ | +2.08×10³⁸/−2.14×10³⁸ | 1.21×10³⁹–2.33×10³⁹ |
+| 31211+31996 | ~2550.3 | bremss+gauss | 3.068×10⁻¹³ | 3.681×10³⁹ | +1.43×10³⁸/−3.30×10³⁸ | 2.66×10³⁹–5.13×10³⁹ |
+
+(20306/31211+31996 fluxes/errors shifted at the ~1-5% level from the previous
+table purely from Monte-Carlo sampling noise on rerun — their models/setup were
+untouched.)
+
+**Figure updated again:** `figures/xray_luminosity_light_curve.png/.pdf` —
+power-law-index annotations between epochs also updated (t⁻⁰·³⁷ then t²·⁵³,
+vs. t⁻⁰·³⁵/t²·²³ before, since the middle point's central value shifted
+slightly).
+
 ## Step 6 — Light curve modeling (`redback-csm`), not started
 
 Once the X-ray light curve is constructed (fluxes/luminosities per epoch from Step
@@ -867,15 +1036,23 @@ Step 5 (flux/luminosity conversion) being done first to have a light curve to fi
   a 2nd absorber) for that epoch specifically; (2) no formal model-comparison
   statistic (AIC/BIC or similar) computed yet, so "which model is best" per epoch is
   only informal so far.
-- Flux/luminosity conversion (Step 5) — **done 2026-09-04**: per-epoch adopted
-  models from the user's `xray_epoch_spec_models.xlsx`, unabsorbed flux via
-  Sherpa's `sample_flux` (0.3-8 keV), luminosity via D=10.72 Mpc (Cepheid,
-  matching the radio-side distance). Sanity check confirmed bremss_gauss agrees
-  with bremss-alone to ~1.2% at 31211+31996 (validates the adopted number);
-  bremss_powerlaw diverged ~76% there due to its known parameter degeneracy, not
-  a model-independence failure. Final table: `fits/xray_flux_luminosity.csv`. See
-  Step 5 "Done 2026-09-04" for full results and caveats (29071+29072's error bar
-  is huge and one-sided, reflecting that epoch's poor shape constraints).
+- Flux/luminosity conversion (Step 5) — **done 2026-09-04, superseded
+  2026-09-07/08**: per-epoch adopted models from the user's
+  `xray_epoch_spec_models.xlsx`. Original round used Sherpa's `sample_flux`
+  (0.3-8 keV) and D=10.72 Mpc (Cepheid); superseded by a redo using PyXspec's
+  `lum`/`flux` commands, D=10 (+1.8/-1.5) Mpc (Maeda et al. 2023b, via an
+  "effective H0" trick), and a 0.3-10 keV band — the tool/distance/band change
+  was prompted by, and resolved, a ~3-4x discrepancy against an independent
+  X-ray light curve the user's advisor made (see "Redone 2026-09-07/08" in
+  Step 5). Original sanity check (model-independence at 31211+31996, bremss_gauss
+  vs. bremss-alone agreeing to ~1.2%) still stands as a validation of the
+  continuum+line model choice, just not the current adopted flux/lum numbers.
+  Current adopted table: `fits/xray_flux_luminosity_pyxspec_0p3_10kev.csv`. See
+  Step 5 "Redone 2026-09-07/08" for full results and caveats (29071+29072's
+  error bar is still huge and one-sided, reflecting that epoch's poor shape
+  constraints — unaffected by the tool/distance/band change; the 8-10 keV
+  contribution to flux/luminosity is model extrapolation, not measured, since no
+  epoch has source counts above ~6.4-7.2 keV).
 - Final-epoch (31211+31996) fit improvement — **done 2026-09-03**: added a
   Gaussian (free-centroid, and a fixed-at-2.9-keV comparison) to powerlaw, bremss,
   and bremss_powerlaw (not apec) for the 31211+31996 epoch only. Key result:
