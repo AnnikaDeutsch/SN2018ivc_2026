@@ -1140,11 +1140,16 @@ estimation and an eruptive/shell CSM model follow-up.
 - First round of fitting is done: 3 models (apec/powerlaw/bremss) × 3 epochs, wstat,
   `group_counts(15)`, N_H fixed at Galactic — see Step 4 "Fit results" for the full
   table and per-epoch interpretation.
-- Follow-ups flagged by the first round, not yet done: (1) 20306's thermal-model fits
-  peg at their hard kT boundary and fit poorly — worth trying free intrinsic N_H (or
-  a 2nd absorber) for that epoch specifically; (2) no formal model-comparison
-  statistic (AIC/BIC or similar) computed yet, so "which model is best" per epoch is
-  only informal so far.
+- Follow-ups flagged by the first round: (1) freeing intrinsic N_H for 20306 —
+  **done 2026-09-03**, see "Collaborator guidance 2026-09-03" above: thermal
+  models (apec/bremss) improve somewhat but still peg at their hard kT boundary;
+  powerlaw (the best-fitting model for this epoch) sees essentially no fit-quality
+  gain — free N_H just relocates to the pegged minimum (0) without changing the
+  fit. Powerlaw alone remains the best model for 20306. Not revisiting further —
+  a 2nd absorber component was never tried and isn't planned. (2) a formal
+  model-comparison statistic (AIC/BIC or similar) — **deliberately not being
+  pursued**, per the user's decision 2026-09-14; model choice stays based on the
+  informal W-stat/rstat comparison already in the "Fit results" tables above.
 - Flux/luminosity conversion (Step 5) — **done 2026-09-04, superseded
   2026-09-07/08**: per-epoch adopted models from the user's
   `xray_epoch_spec_models.xlsx`. Original round used Sherpa's `sample_flux`
