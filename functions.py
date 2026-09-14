@@ -64,24 +64,30 @@ def insert_every_two(arr, val):
 
 
 #---------------Plotting Functions---------------#
-def set_plot_style():
+def set_plot_style(scale=1.0):
     """Apply the shared 18ivc paper plotting style.
 
     Matches the formatting reference figures/19yvr_figformat_example.png
     (serif/Times font, axes/tick sizing, inward mirrored ticks). Call this
     once at the top of any notebook cell that builds a paper figure instead
     of redefining these rcParams inline, so all figures stay in sync.
+
+    scale: multiplier applied to every font size and axes.linewidth below.
+    Default 1.0 is the standard paper style, unchanged. Use e.g. scale=1.45
+    for a "proposal" rendering where the default sizes read too small at
+    typical embed sizes (figures are usually placed smaller in a proposal
+    than a paper, so text needs to start larger).
     """
     rcParams.update({
         "font.family": "serif",
         "font.serif": ["Times New Roman", "Times", "DejaVu Serif"],
-        "font.size": 14,
-        "axes.labelsize": 16,
-        "axes.titlesize": 20,
-        "legend.fontsize": 11,
-        "xtick.labelsize": 12,
-        "ytick.labelsize": 12,
-        "axes.linewidth": 1.2,
+        "font.size": 14 * scale,
+        "axes.labelsize": 16 * scale,
+        "axes.titlesize": 20 * scale,
+        "legend.fontsize": 11 * scale,
+        "xtick.labelsize": 12 * scale,
+        "ytick.labelsize": 12 * scale,
+        "axes.linewidth": 1.2 * scale,
         "xtick.direction": "in",
         "ytick.direction": "in",
         "xtick.top": True,
