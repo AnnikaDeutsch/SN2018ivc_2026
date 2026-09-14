@@ -32,6 +32,10 @@ duplicate that content here; this document is about data provenance and modeling
   `conda activate 18ivc_clean`. Same env used for X-ray notebooks — see
   [[feedback_notebook_kernel]] memory, notebooks in this repo run under `18ivc_clean`,
   not `18ivc`.
+- **`18ivc_csm`** (conda env): a separate, already-configured environment where
+  `redback-csm` **is** installed and working (confirmed 2026-09-14) — use this env,
+  not `18ivc_clean`, for any CSM-interaction light-curve modeling. See
+  `CLAUDE_modelling_SOP.md` for the full modeling plan and environment details.
 - No CIAO/Sherpa-equivalent special environment is needed for radio — everything here
   is plain Python (numpy/scipy/pandas/astropy/matplotlib) plus `redback`.
 
@@ -226,9 +230,11 @@ Both are full git-cloned source trees (not just pip installs) living in the repo
 - **`redback-csm/`** — a companion package (Sarin & Hirai 2026, arXiv:2605.19571)
   adding Fortran-based circumstellar-medium (CSM) interaction models as plug-ins to
   redback's model library ("once installed, all CSM models are automatically
-  available in redback's model library"). **Not currently installed** in `18ivc_clean`
-  — `import redback_csm` fails (`ModuleNotFoundError`). Its models are therefore
-  **not** in `redback.model_library.all_models_dict` right now.
+  available in redback's model library"). **Not installed in `18ivc_clean`**
+  — `import redback_csm` fails there (`ModuleNotFoundError`) — **but is installed and
+  working in a separate `18ivc_csm` env** (confirmed 2026-09-14, `wind_bpl_bolometric`
+  present in `all_models_dict`). See `CLAUDE_modelling_SOP.md` for the CSM-modeling
+  plan; use `18ivc_csm` for that work.
 - **`redback_fit_example.py`** — a short example script (not yet run, no output
   files/logs from it found in the repo) showing the intended usage: load
   `data/radio_18ivc_data.csv` into a `redback.transient.Transient` (flux-density mode,
@@ -434,8 +440,9 @@ Updated shallowing sequence shown in the figure: α = 1.12 → 1.12 → 0.57 →
   actually been run — no posterior/corner-plot output exists yet. Could supersede the
   per-epoch `chi2_comp.py` approach with a single global fit, but that's a larger
   undertaking than the current per-epoch method.
-- `redback-csm` is cloned into the repo but not installed in `18ivc_clean` — its CSM
-  models aren't available until it's installed.
+- `redback-csm` is installed and working in the `18ivc_csm` env (not `18ivc_clean`,
+  where it's still absent) — see `CLAUDE_modelling_SOP.md` for the CSM light-curve
+  modeling plan, which is underway as of 2026-09-14.
 - No figure currently overlays `chi2_comp.py`'s fitted SED curves on the
   `sed_epoch_grid.ipynb`-style multi-epoch panel layout, and no figure computes or
   displays how the fitted spectral index changes across epochs — this is the gap the

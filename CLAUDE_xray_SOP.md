@@ -1123,23 +1123,17 @@ figure files were deleted rather than left stale. See Step 6's note below
 `figures/xray_luminosity_light_curve.png/.pdf`. Executed under the
 `18ivc_clean` kernel via `jupyter nbconvert --execute --inplace`.
 
-## Step 6 — Light curve modeling (`redback-csm`), not started
+## Step 6 — Light curve modeling (`redback-csm`)
 
-Once the X-ray light curve is constructed (fluxes/luminosities per epoch from Step
-5), light curve modeling will be done with
-[`redback-csm`](https://github.com/nikhil-sarin/redback_csm) (Sarin & Hirai 2026,
-arXiv:2605.19571) — Fortran-based CSM-interaction models plugged into the
-[`redback`](https://github.com/nikhil-sarin/redback) transient-modeling/Bayesian
-inference package (Sarin et al. 2024, arXiv:2308.12806). Both packages are cloned
-locally at `redback/` and `redback-csm/` (untracked in this repo as of 2026-09-03 —
-not yet added under version control or set up in a conda env). `redback-csm` model
-names follow `{outer_CSM}_{inner_ejecta}` (outer = older progenitor-laid-down CSM
-density profile, inner = the more recent transient ejecta profile); once installed,
-its models register into redback's model library and are used for inference the same
-way as redback's built-in models.
-
-Not yet started — env setup, model selection, and fitting all still to do. Depends on
-Step 5 (flux/luminosity conversion) being done first to have a light curve to fit.
+Moved to its own dedicated document, **`CLAUDE_modelling_SOP.md`**, started
+2026-09-14 — read that file for the current plan and status rather than this stub.
+Summary: `redback-csm` (Sarin & Hirai 2026, arXiv:2605.19571, Fortran-based
+CSM-interaction models plugged into `redback`'s Bayesian inference, Sarin et al. 2024,
+arXiv:2308.12806) is installed and working in a dedicated `18ivc_csm` conda env
+(confirmed 2026-09-14) — not `18ivc_clean`, where it's still absent. The modeling plan
+covers both this X-ray light curve (Step 5's output) and the radio light curve
+(`CLAUDE_radio_SOP.md`), fit separately first and then jointly, plus CSM-mass
+estimation and an eruptive/shell CSM model follow-up.
 
 ## Open items / TODO
 
@@ -1190,9 +1184,8 @@ Step 5 (flux/luminosity conversion) being done first to have a light curve to fi
   emission lines (see the Gaussian-line plan above) rather than a missing
   continuum component. All 4 fit-comparison figures regenerated. See Step 4
   "Collaborator guidance 2026-09-03" for full results.
-- Light curve modeling with `redback-csm` (Step 6) — planned for once the X-ray
-  light curve exists (after Step 5); not started, packages cloned locally but not
-  yet set up.
+- Light curve modeling with `redback-csm` (Step 6) — env/data audit done 2026-09-14;
+  planning and fitting itself not started. See `CLAUDE_modelling_SOP.md`.
 - Hardness ratio vs. time (Step 5.5) — **done 2026-09-09**: HR = F(2-8 keV)/
   F(0.3-2 keV), absorbed flux, from each epoch's Step 4/5 adopted model, with
   correlated (covariance-based MC) error propagation on the ratio. Result: HR
