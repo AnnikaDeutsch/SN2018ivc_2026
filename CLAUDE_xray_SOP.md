@@ -1008,6 +1008,121 @@ power-law-index annotations between epochs also updated (t⁻⁰·³⁷ then t²
 vs. t⁻⁰·³⁵/t²·²³ before, since the middle point's central value shifted
 slightly).
 
+## Step 5.5 — Hardness ratio vs. time
+
+Procedure decided 2026-09-09, before Step 6 (CSM light-curve modeling) begins.
+Goal: a quick diagnostic of how the X-ray spectral shape evolves across the 3
+epochs, independent of (and prior to) the physical CSM modeling in Step 6.
+
+**Definition:** HR = F(2–8 keV) / F(0.3–2 keV) — hard/soft, so HR increases
+with hardness (low = soft-dominated, high = hard-dominated).
+
+**Decisions (workshopped with the user 2026-09-09):**
+- **Model-based flux** (not empirical counts-based): reuse each epoch's
+  already-adopted Step 4/5 best-fit model (`xray_epoch_spec_models.xlsx`) and
+  the existing PyXspec setup from
+  `xray_flux_luminosity_pyxspec_0p3_10kev.py` — same per-epoch model
+  expressions and starting parameter values, same 0.3–10 keV notice/fit
+  range — but call `AllModels.calcFlux` twice per epoch, once for
+  "0.3 2.0" and once for "2.0 8.0", instead of once for the full band.
+- **Absorbed (observed) flux**, not unabsorbed — deliberately different from
+  Step 5's luminosity convention (which zeroed `TBabs.nH` for intrinsic
+  flux). The HR is meant to trace the *observed* spectral shape, including
+  any absorption evolution — relevant here since 20306 has a large free
+  intrinsic N_H (Step 4, "Collaborator guidance 2026-09-03"), which is part
+  of the physical story a changing HR could reflect.
+- **Correlated error propagation, not independent per-band errors combined
+  in quadrature.** A shape parameter (e.g. PhoIndex, kT) moves both bands
+  together or oppositely, and that correlation matters for a ratio.
+  Implementation: after the per-epoch refit, draw `N_SIMS=2000` samples of
+  the free fit parameters from a multivariate normal using the fit's
+  covariance matrix (`Fit.covariance`, unpacked from its packed
+  lower-triangular form — verified against each parameter's own `.sigma`
+  before use), evaluate both band fluxes per sample, and take the 16th/84th
+  percentiles of the resulting **ratio** distribution (not of each band's
+  marginal distribution combined afterward). Central HR comes from the
+  unperturbed best-fit values, not the median of the MC samples. Samples
+  that raise an exception (unphysical parameter draw, e.g. negative
+  kT/norm, or below a hard parameter bound like the 31211+31996 epoch's
+  Sigma floor) are dropped and counted, not treated as errors.
+- HR is a pure flux ratio — no distance conversion needed, so (unlike Step
+  5) there's no distance-systematic bracket to compute or combine.
+
+**Environment gotcha (found while testing 2026-09-09): PyXspec's compiled
+module lives in the *old* `SN2018ivc` repo's HEASoft build, not this one's.**
+`data/Chandra/heasoft-6.36/` in *this* repo (`SN2018ivc_2026`) only has
+`heasoftpy` under its `lib/python` — the actual compiled PyXspec extension
+(`xspec/_pyXspec.so`, `mxspec/_pymXspec.so`) only exists under
+`/Users/adeutsch/SN2018ivc/data/Chandra/heasoft-6.36/aarch64-apple-darwin24.6.0/lib/python/`
+(the earlier, non-`_2026` project directory) — presumably where the PyXspec
+build mentioned in Step 5's "Redone 2026-09-07/08" notes actually happened.
+Confirmed working combination (verified 2026-09-09 by both importing xspec
+and running a full load+fit+calcFlux cycle on the 31211+31996 spectrum):
+```bash
+export HEADAS=<this repo>/data/Chandra/heasoft-6.36/aarch64-apple-darwin24.6.0
+source $HEADAS/headas-init.sh
+export PYTHONPATH=/Users/adeutsch/SN2018ivc/data/Chandra/heasoft-6.36/aarch64-apple-darwin24.6.0/lib/python:$PYTHONPATH
+/opt/anaconda3/envs/18ivc_clean/bin/python3 <script>.py
+```
+`HEADAS` itself still points at *this* repo's own install (for calibration
+data — both installs are the same HEASoft 6.36 build, so this is safe); only
+`PYTHONPATH` needs to reach into the old repo for the compiled module. Should
+be added to the "Environments" section at the top of this file if PyXspec is
+used again outside this step.
+
+**Script:** `data/Chandra/spectral_fitting/xray_hardness_ratio.py`, run under
+the above environment. Output: `fits/xray_hardness_ratio.csv`.
+
+### Done 2026-09-09 — results
+
+**Implementation note found while writing the script:** the manual per-sample
+MC loop (setting each free parameter's `.values[0]` from a
+`numpy.random.default_rng` draw) requires casting to a native Python `float`
+before assigning to `Parameter.values` — passing a raw `numpy.float64`
+silently fails PyXspec's SWIG-level type check and prints
+`***XSPEC Error: invalid parameter input` per attempted assignment
+(2000+ prints — no Python exception raised, so this would otherwise pass
+undetected). Fixed by wrapping every assignment in `float(val)`. Separately
+(not a bug, expected/desired behavior, verified deliberately): when an MC
+draw pushes a parameter outside its hard bounds (e.g. `bremss+gaussian`'s
+`Sigma < 0.055` keV resolution floor, or a negative norm), XSPEC clamps the
+parameter to the nearest hard bound and prints `***Error: Desired Value ...
+is outside hard range ...` rather than raising or leaving the parameter
+unset — confirmed by direct test before trusting the MC loop's results. This
+means all 2000/2000 MC draws succeeded for every epoch (`n_mc_fail=0` in the
+output CSV) — extreme draws land at a physical boundary rather than being
+dropped, consistent with the same resolution-floor reasoning already used in
+`fit_models_gauss.py`.
+
+**Results** (`fits/xray_hardness_ratio.csv`):
+
+| Epoch | Phase (days) | Model | F(0.3–2 keV) (erg/s/cm²) | F(2–8 keV) (erg/s/cm²) | HR = hard/soft |
+|---|---|---|---|---|---|
+| 20306 | ~12.7 | powerlaw (N_H frozen) | 3.69×10⁻¹⁴ | 5.44×10⁻¹³ | 14.72 $^{+3.51}_{-2.99}$ |
+| 29071+29072 | ~1868.7 | powerlaw (N_H frozen) | 3.30×10⁻¹⁴ | 8.09×10⁻¹⁴ | 2.45 $^{+1.06}_{-0.79}$ |
+| 31211+31996 | ~2550.3 | bremss+gauss | 1.00×10⁻¹³ | 1.69×10⁻¹³ | 1.69 $^{+0.19}_{-0.25}$ |
+
+**HR decreases monotonically with phase** — the spectrum softens over time,
+consistent with 20306's already-noted very hard/flat power-law index
+(Γ≈0.19, Step 4) and 31211+31996's cooler, better-constrained thermal+line
+fit. Physically plausible for CSM-interaction X-ray emission (softening as
+the shock decelerates and/or the absorbing column evolves), though no
+formal interpretation beyond this qualitative trend has been attempted —
+this step is a diagnostic ahead of Step 6, not a physical model fit itself.
+
+**Figure — superseded 2026-09-09, merged into the luminosity light curve.**
+Originally its own notebook/figure
+(`figure_notebooks/xray_hardness_ratio.ipynb` →
+`figures/xray_hardness_ratio.png/.pdf`), at the user's request this was
+folded into `figure_notebooks/xray_luminosity_light_curve.ipynb` as a second
+panel sharing the same (log) phase x-axis — the standalone notebook and
+figure files were deleted rather than left stale. See Step 6's note below
+(and the figure itself) for the combined layout: top panel unchanged
+(luminosity, log-y), bottom panel HR (linear-y), `sharex=True`,
+`height_ratios=[2,1]`, top panel's x tick labels hidden. Output:
+`figures/xray_luminosity_light_curve.png/.pdf`. Executed under the
+`18ivc_clean` kernel via `jupyter nbconvert --execute --inplace`.
+
 ## Step 6 — Light curve modeling (`redback-csm`), not started
 
 Once the X-ray light curve is constructed (fluxes/luminosities per epoch from Step
@@ -1078,3 +1193,10 @@ Step 5 (flux/luminosity conversion) being done first to have a light curve to fi
 - Light curve modeling with `redback-csm` (Step 6) — planned for once the X-ray
   light curve exists (after Step 5); not started, packages cloned locally but not
   yet set up.
+- Hardness ratio vs. time (Step 5.5) — **done 2026-09-09**: HR = F(2-8 keV)/
+  F(0.3-2 keV), absorbed flux, from each epoch's Step 4/5 adopted model, with
+  correlated (covariance-based MC) error propagation on the ratio. Result: HR
+  decreases monotonically with phase (14.7 → 2.5 → 1.7), i.e. the spectrum
+  softens over time. See Step 5.5 for full methodology, the environment
+  gotcha found along the way (PyXspec's compiled module lives in the old
+  `SN2018ivc` repo, not this one's), and the figure reference.
