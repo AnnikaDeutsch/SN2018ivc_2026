@@ -10,12 +10,22 @@ physical:
   v_wind:
     value: 20
     unit: km/s
-    note: used in Maeda+2023a
+    note: used in Maeda+2023a; also adopted for redback-csm CSM-interaction modeling per Maeda+2023b (vwind parameter)
 
   v_ej:
     value: 7000
     unit: km/s
     note: adopted from Boestrom et al. 2020
+
+  mexp:
+    value: 3
+    unit: Msun
+    note: ejecta mass adopted from Maeda et al. 2023b; fixed (not free) in redback-csm CSM-interaction fits
+
+  eexp:
+    value: 1.2
+    unit: foe (1e51 erg)
+    note: explosion kinetic energy adopted from Maeda et al. 2023b; fixed (not free) in redback-csm CSM-interaction fits
 
   T_e:
     value: 1.0e5
