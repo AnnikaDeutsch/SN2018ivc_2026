@@ -79,27 +79,56 @@ so they remain free unless/until a source is found (flag if one turns up).
   **Only 3 epochs is sparse for a multi-parameter light-curve fit** — see the Step 3
   caveat below.
 
-## Step 1 — Sanity checks before fitting, not started
+## Step 1 — Sanity checks before fitting, done 2026-09-15
 
-- Confirm `18ivc_csm` env still resolves (`conda activate 18ivc_csm`, `python -c
-  "import redback_csm, redback; print(redback_csm.__version__ if hasattr(redback_csm,
-  '__version__') else 'ok')"`).
-- Build the two `redback` transient objects:
-  - Radio: `redback.transient.Transient(data_mode='flux_density', time=phase,
-    flux_density=flux, flux_density_err=flux_err, frequency=freq*1e9)` — same shape as
-    `redback_fit_example.py`, but for `redback-csm` models rather than
-    `synchrotron_massloss`.
-  - X-ray: `redback.transient.Supernova(data_mode='luminosity',
-    time_rest_frame=phase_days, Lum50=luminosity_central/1e50,
-    Lum50_err=...)` — needs a decision on how to combine `lum_errlo/hi` (stat) with
-    the separate distance-systematic bracket into one `Lum50_err` (or fit with
-    asymmetric errors if `redback`/`bilby`'s likelihood supports it) — **not yet
-    decided, resolve at Step 3**.
-- Quick non-Bayesian look with `redback_csm.explore.csm_lightcurve_from_density` or a
-  bare `wind_bpl_radio`/`wind_bpl_xray` call at the fixed `mexp`/`eexp`/`vwind` and a
-  few representative `mdot` guesses, plotted against the real data, before spending
-  compute on nested sampling — cheap check that the model family is in the right
-  ballpark (right order-of-magnitude flux, right rough timescale) before fitting.
+Script: `csm_modeling/step1_sanity_checks.py` (new `csm_modeling/` dir, first script for
+this SOP's step-by-step work; diagnostic plots go to `csm_modeling/diagnostics/`, kept
+separate from `figures/`, which is for final publication figures per `CLAUDE_plotting.md`
+— this is a quick-look check, not a paper figure).
+
+- **Env confirmed:** `18ivc_csm` resolves at `/opt/anaconda3/envs/18ivc_csm` (not under
+  `~/miniconda3` — use `source /opt/anaconda3/etc/profile.d/conda.sh` if `conda
+  activate` can't find it). `redback` 1.16.0, `redback-csm` 0.1.0, `wind_bpl_radio` /
+  `wind_bpl_xray` both present in `redback.model_library.all_models_dict`. Only the
+  already-known harmless warnings (`_nickelcobalt_engine` plugin conflict, missing
+  `lalsimulation`).
+- **Transient objects built**, following the `redback_fit_example.py` pattern:
+  - Radio: `redback.transient.Transient(data_mode='flux_density', ...)`, all 63 points,
+    freq converted GHz→Hz.
+  - X-ray: `redback.transient.Supernova(data_mode='luminosity', ...)`, all 3 points.
+    `Lum50_err` here is a **provisional** quadrature sum of the statistical error
+    (mean of `lum_errlo/hi`) and the distance-systematic half-width (mean of the
+    `luminosity_dist_lower/upper` offsets from central) — good enough for this
+    sanity-check plot, but **still not the final Step 3 decision** on how to combine
+    these two error sources (or whether to fit them asymmetrically).
+- **Quick non-Bayesian look:** `wind_bpl_radio`/`wind_bpl_xray` called directly (not
+  `redback_csm.explore.csm_lightcurve_from_density`, which wasn't needed for this) at
+  fixed `mexp=3, eexp=1.2, vwind=20`, three `mdot` guesses (1e-5, 1e-4, 1e-3 M☉/yr),
+  representative ejecta/microphysics values (`delta=1, nn=10, eff=0.5, logepsb=-2,
+  logepse=-1, p=3` for radio; `logepsx=-1` for X-ray), plotted against real data at
+  4 representative radio frequencies (6/15/33/100 GHz) and all 3 X-ray epochs.
+  **Result: right ballpark.** Radio data at all four frequencies fall within/near the
+  `mdot=1e-4`–`1e-3` envelope; X-ray luminosities are consistent with similar `mdot`
+  values. No order-of-magnitude mismatch or wildly wrong timescale — `wind_bpl` is a
+  reasonable model family to proceed to Step 2's actual fit with.
+- **Styling decision (user, 2026-09-15), applies to future CSM diagnostic/light-curve
+  plots in `csm_modeling/`, not just this one:**
+  - Radio panel: color follows `CLAUDE_plotting.md`'s "Frequency/band → turbo color"
+    rule as-is — plain `turbo` colormap through `LogNorm(vmin=1, vmax=250)` on
+    frequency, **not darkened**. Darkening (via the `darken_color` helper from
+    `CLAUDE_plotting.md`) was tried and explicitly rejected by the user; don't
+    reintroduce it here without asking again.
+  - mdot (linestyle: dashed/solid/dotted for 1e-5/1e-4/1e-3) gets its own legend
+    entries with **gray** proxy `Line2D` handles, kept separate from the
+    frequency-colored data-point legend entries — putting an mdot label on one
+    specific frequency's colored line (the original approach) read as if that
+    linestyle only applied to that frequency, which was confusing.
+  - X-ray model curves use a fixed **purple** (`darkviolet`), deliberately chosen to
+    sit off the radio panel's turbo scale (which runs blue→cyan→green→yellow→
+    orange→red) so the two panels' curves don't read as sharing one color axis when
+    viewed side by side. This is specific to the X-ray panel not being a
+    multi-frequency light curve — the turbo/frequency rule doesn't apply to it in the
+    first place (see the "Quick non-Bayesian look" bullet above).
 
 ## Step 2 — Baseline radio-only fit: `wind_bpl_radio`, not started
 
@@ -244,8 +273,7 @@ project's figure conventions.
 
 ## Open items / TODO
 
-- Nothing in this SOP has been executed yet (env/data audit only, done 2026-09-14) —
-  Steps 1–8 are all "not started."
+- Step 1 done 2026-09-15 (see above); Steps 2–8 are still "not started."
 - Step 3's sparse-X-ray-data handling (fix `delta`/`nn` from radio, vs. treat as
   exploratory) is an open decision, to be made once Step 2 has results.
 - Step 5's joint-likelihood implementation mechanism (custom `bilby` joint likelihood
