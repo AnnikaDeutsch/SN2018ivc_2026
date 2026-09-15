@@ -98,7 +98,7 @@ for freq_ghz, color in zip(freqs_ghz, colors):
     if mask.any():
         ax.errorbar(radio['phase'].values[mask], radio['flux'].values[mask],
                      yerr=radio['flux_err'].values[mask], fmt='o', color=color,
-                     label=f'{freq_ghz:.0f} GHz data', alpha=0.8, ms=5)
+                     label=f'{freq_ghz:.0f} GHz data', alpha=0.8, ms=8)
     for ls, mdot in zip(linestyles, mdot_guesses):
         flux = wind_bpl_radio(time=time_grid, redshift=REDSHIFT, mdot=mdot, vwind=VWIND,
                                frequency=freq_ghz * 1e9, **ejecta_kw, **sync_kw)
@@ -117,7 +117,7 @@ ax.legend(freq_handles + mdot_handles, freq_labels + mdot_labels, fontsize=7, nc
 # X-ray panel
 ax = axes[1]
 ax.errorbar(xray['phase_days'].values, lum50_central * 1e50,
-             yerr=lum50_err_provisional * 1e50, fmt='o', color='k', label='data (provisional err)')
+             yerr=lum50_err_provisional * 1e50, fmt='o', color='k', label='data (provisional err)', ms=8)
 for ls, mdot in zip(['--', '-', ':'], mdot_guesses):
     lx = wind_bpl_xray(time=time_grid, redshift=REDSHIFT, mdot=mdot, vwind=VWIND,
                         output_format="luminosity", **ejecta_kw, **xray_kw)

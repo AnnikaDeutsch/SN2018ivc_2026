@@ -130,6 +130,17 @@ separate from `figures/`, which is for final publication figures per `CLAUDE_plo
     multi-frequency light curve — the turbo/frequency rule doesn't apply to it in the
     first place (see the "Quick non-Bayesian look" bullet above).
 
+**Watch item flagged from the Step 1 plot (user, 2026-09-15):** with the placeholder
+`delta/nn/eff/logepsb/logepse/p` values above (not fit, just representative), a single
+`wind_bpl` turnover visibly doesn't track the shape of any one frequency's light curve
+well — e.g. the late-time (~700–2600 d) 6/15/33 GHz points sit on a slow, sustained
+decline while the 100 GHz points rise then drop sharply by ~200 d. Expected at this
+placeholder stage (only `mdot` was varied; the shape-controlling parameters weren't).
+**But if Step 2's real fit (all 7 params free) still can't match the shape well, treat
+that as an independent line of evidence for Step 7's eruptive/shell model**
+(`gausswind_bpl`), alongside the existing HR-softening motivation — don't just chase a
+better `wind_bpl` fit indefinitely if the smooth-wind shape looks fundamentally wrong.
+
 ## Step 2 — Baseline radio-only fit: `wind_bpl_radio`, not started
 
 Steady wind + broken-power-law ejecta (`wind_bpl`), radio wrapper. Simplest physically
