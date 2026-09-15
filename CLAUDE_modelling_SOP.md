@@ -17,6 +17,19 @@ stop short of committing and say so rather than asking for one-time confirmation
 Host galaxy NGC 1068, z = 0.003793 (see [[project_sn2018ivc]] memory) — same
 redshift/distance context as the radio and X-ray work.
 
+**Status as of 2026-09-15 (stopped here, resume by reading Step 2 + Open items
+below): Step 1 done. Step 2 (`wind_bpl_radio` baseline fit) is blocked** —
+`wind_bpl_radio` cannot statistically fit the 63-point radio light curve (best
+chi2/dof ~156, found via a global search over a very wide parameter volume) with
+`mexp`/`eexp`/`vwind` fixed to the Maeda et al. 2023b values, regardless of
+`mdot`/`delta`/`nn`/`eff`/`logepsb`/`logepse`/`p`. This isn't a prior-range or
+sampler-convergence issue (ruled out via two pilot fits + a profile-likelihood scan
++ a global differential-evolution search — see Step 2 below for the full trail).
+**Next session: start by deciding how to proceed** (candidates in Open items —
+jump to Step 7's eruptive `gausswind_bpl` model, release `mexp`/`eexp`/`vwind`, or
+investigate further) — nothing further should run against `wind_bpl_radio` with
+the current fixed-parameter setup until that decision is made.
+
 ## Environments
 
 - **`18ivc_csm`** (conda env, Python 3.11.15): the environment for all CSM modeling
@@ -141,7 +154,7 @@ that as an independent line of evidence for Step 7's eruptive/shell model**
 (`gausswind_bpl`), alongside the existing HR-softening motivation — don't just chase a
 better `wind_bpl` fit indefinitely if the smooth-wind shape looks fundamentally wrong.
 
-## Step 2 — Baseline radio-only fit: `wind_bpl_radio`, not started
+## Step 2 — Baseline radio-only fit: `wind_bpl_radio`, blocked — see finding below (2026-09-15)
 
 Steady wind + broken-power-law ejecta (`wind_bpl`), radio wrapper. Simplest physically
 motivated starting model, per the user's explicit decision to establish this baseline
@@ -149,18 +162,76 @@ before trying an eruptive/shell model.
 
 - **Fixed:** `mexp=3`, `eexp=1.2`, `vwind=20`, `redshift=0.003793`.
 - **Free:** `mdot`, `delta`, `nn`, `eff`, `logepsb`, `logepse`, `p`.
-- **Data:** `data/radio_18ivc_data.csv`, all 63 points, multi-frequency (redback fits
-  the frequency-dependence directly via the `frequency` array passed in
-  `model_kwargs`, same pattern as `redback_fit_example.py`).
-- **Priors:** start from `redback.priors.get_priors('wind_bpl_radio')` (auto-generated
-  from the model signature per the `redback-csm` README), tighten `mdot`/`vwind`-scale
-  ranges if the Step 1 sanity check suggests the auto priors are far from the data.
-- **Sampler:** `dynesty` via `redback.fit_model`, `nlive` to be chosen once a first
-  quick run's runtime is known (start at `nlive=500` per the package's own examples,
-  adjust if convergence is slow given 7 free parameters).
-- **Output:** Ṁ posterior (the primary science target), corner plot, multiband
-  light-curve fit plot (`result.plot_multiband_lightcurve()` /
-  `result.plot_corner()`).
+- **Data:** `data/radio_18ivc_data.csv`, all 63 points, multi-frequency.
+- **Script:** `csm_modeling/step2_radio_only_fit.py`.
+
+**Implementation notes (corrections to this Step's original plan, found while
+building the fit, not anticipated when this Step was first written):**
+1. **The `redback_fit_example.py` per-point-frequency-array pattern this Step
+   originally cited does NOT work for `wind_bpl_radio`.** Its `frequency` kwarg
+   broadcasts against the model's own internal Fortran time grid (length ~459), not
+   the caller's `time` array — passing the real 63-point mixed-frequency array
+   errors with a shape mismatch. Step 1's sanity check never caught this because it
+   only ever passed one scalar frequency at a time. Fixed with a wrapper,
+   `wind_bpl_radio_multifreq` (in the script above), that groups data by unique
+   frequency and calls `wind_bpl_radio` once per group, reassembling results in
+   order. That wrapper's signature must be `(time, **kwargs)` with `frequency`
+   popped from `**kwargs` inside the body, NOT a named parameter — bilby infers
+   sampled-parameter names from the function signature, and a named `frequency`
+   parameter collides with the `frequency` array also arriving via `model_kwargs`
+   (duplicate-keyword `TypeError` when redback's `GaussianLikelihood` unpacks
+   `**self.parameters, **self.kwargs` together).
+2. **`redback.transient.Transient(..., active_bands=...)` must be passed `'all'`
+   explicitly** — its default (`None`) crashes `fit_model` inside
+   `get_filtered_data()` (`TypeError: argument of type 'NoneType' is not iterable`).
+   Step 1 never hit this either, since it never called `fit_model`.
+
+**Priors:** started from `redback.priors.get_priors('wind_bpl_radio')`, plus
+`del priors['vej_max_ratio']` (auto-generated for any BPL-ejecta model regardless of
+whether the specific wrapper actually uses it — confirmed via `inspect.signature`
+that `wind_bpl_radio` doesn't; sampling it would waste a dimension on a flat
+direction). `mdot` tightened to `LogUniform(1e-6, 1e-1)` per the Step 1 ballpark.
+
+**Pilot fits (nlive=50, for pipeline validation + timing, not final results) —
+boundary-pinning investigation:**
+- First pilot: `p` and `nn` both landed pinned at their auto-prior walls (`p` →
+  2.0002 against `Uniform(2,4)`'s floor; `nn` → 13.99 against `Uniform(6,14)`'s
+  ceiling) across the *entire* posterior, not just poorly constrained.
+- A profile-likelihood scan (holding the other 5 params at the pilot posterior
+  median, `csm_modeling/step2_boundary_investigation` commands, not saved as a
+  script) found this was initially a real, bounded interior optimum being clipped:
+  chi2 minimized at `p ≈ 1.95` and `nn ≈ 40–50` (asymptoting flat by `nn ≈ 100+`,
+  not diverging) — not a runaway. Widened priors to `p: Uniform(1.5, 4.0)`,
+  `nn: Uniform(6.0, 100.0)` in the script.
+- **Second pilot (widened priors): `mdot`, `p`, AND `nn` all pinned at their new
+  walls again** (`mdot` → 1.2e-6 against its `1e-6` floor; `p` → 1.5005 against the
+  new `1.5` floor; `nn` → 98.3 against the new `100` ceiling), with `log Z` jumping
+  from -6668 to -4638 — i.e. genuinely still improving, not just re-hitting the same
+  spot. This is whack-a-mole, not convergence.
+
+**Decisive check — global chi2 minimization, not nested sampling (`scipy.optimize
+differential_evolution`, `csm_modeling/step2_global_chi2_check.py`):** searched very
+wide, physically generous bounds (`mdot`: 1e-8–10 Msun/yr, `nn`: 6–300, `p`: 1.1–5,
+`eff`: 0.001–1, `logepsb`/`logepse`: -6–0, `delta`: 0–3), `mexp`/`eexp`/`vwind` still
+fixed. **Result: best chi2/dof = 156** (`mdot`→1.6e-8, `nn`→297, `p`→1.2 — pinned near
+the edges of even this very wide volume, DE plateaued rather than converging to an
+interior point). Per-point residuals at this best-fit point are 5–22σ off at many
+different epochs/frequencies (not one bad outlier point) — both over- and
+under-predicting at different times, matching the shape mismatch flagged from the
+Step 1 plot.
+
+**Conclusion: this is not a prior-range problem.** `wind_bpl_radio`, with
+`mexp`/`eexp`/`vwind` fixed to the Maeda et al. 2023b values, cannot achieve a
+statistically acceptable fit (chi2/dof ~156 vs. ~1 for a good fit) to this 63-point
+multi-frequency radio light curve anywhere in a very wide parameter volume. This
+quantitatively confirms the Step 1 "watch item" above — a single smooth-wind
+turnover really cannot reproduce this light curve's shape, not just with the
+original placeholder parameters. **Step 2 is blocked pending a user decision on how
+to proceed** (see Open items / TODO) — not worth spending hours on a full nlive=500
+nested-sampling run that would just chase the same walls at higher resolution.
+
+- **Would-be output (once unblocked):** Ṁ posterior (the primary science target),
+  corner plot, multiband light-curve fit plot.
 
 ## Step 3 — Baseline X-ray-only fit: `wind_bpl_xray`, not started
 
@@ -284,7 +355,20 @@ project's figure conventions.
 
 ## Open items / TODO
 
-- Step 1 done 2026-09-15 (see above); Steps 2–8 are still "not started."
+- Step 1 done 2026-09-15 (see above). **Step 2 is blocked** (see its section above) —
+  `wind_bpl_radio` cannot statistically fit the radio light curve shape (chi2/dof ~156
+  at the best point found across a very wide parameter search) regardless of `mdot`,
+  `delta`, `nn`, `eff`, `logepsb`, `logepse`, `p`, with `mexp`/`eexp`/`vwind` fixed.
+  Needs a user decision on how to proceed before any further fitting — candidates
+  raised but not decided: (a) move to Step 7's eruptive/shell model
+  (`gausswind_bpl`) now, ahead of finishing the `wind_bpl` baseline sequence, since
+  the smooth-wind shape problem is already conclusively demonstrated; (b) revisit the
+  2026-09-14 decision to fix `mexp`/`eexp`/`vwind` (releasing them might let the
+  ejecta/wind shock timing shift enough to match the light curve, at the cost of no
+  longer independently constraining just CSM properties); (c) something else (e.g.
+  re-examine whether the radio dataset itself is right for this comparison, given it
+  spans many telescopes/epochs). Steps 3–8 are still "not started" and are downstream
+  of this decision.
 - Step 3's sparse-X-ray-data handling (fix `delta`/`nn` from radio, vs. treat as
   exploratory) is an open decision, to be made once Step 2 has results.
 - Step 5's joint-likelihood implementation mechanism (custom `bilby` joint likelihood
